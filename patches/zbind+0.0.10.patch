@@ -1,0 +1,222 @@
+diff --git a/node_modules/zbind/.zig-cache/h/07d15640b9b18613dd66f580180060b4.txt b/node_modules/zbind/.zig-cache/h/07d15640b9b18613dd66f580180060b4.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/h/timestamp b/node_modules/zbind/.zig-cache/h/timestamp
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/o/a32fcfc0e475f08356ed8aef4020640b/dependencies.zig b/node_modules/zbind/.zig-cache/o/a32fcfc0e475f08356ed8aef4020640b/dependencies.zig
+new file mode 100644
+index 0000000..72e4e83
+--- /dev/null
++++ b/node_modules/zbind/.zig-cache/o/a32fcfc0e475f08356ed8aef4020640b/dependencies.zig
+@@ -0,0 +1,2 @@
++pub const packages = struct {};
++pub const root_deps: []const struct { []const u8, []const u8 } = &.{};
+diff --git a/node_modules/zbind/.zig-cache/tmp/00bb83b042620393/build b/node_modules/zbind/.zig-cache/tmp/00bb83b042620393/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/0436c7d8b9338a3e/build b/node_modules/zbind/.zig-cache/tmp/0436c7d8b9338a3e/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/0696f4cf8d40dd6f/build b/node_modules/zbind/.zig-cache/tmp/0696f4cf8d40dd6f/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/11a6aab9f32ea6b6/build b/node_modules/zbind/.zig-cache/tmp/11a6aab9f32ea6b6/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/13e401703d953979/build b/node_modules/zbind/.zig-cache/tmp/13e401703d953979/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/19c1f08423492c9d/build b/node_modules/zbind/.zig-cache/tmp/19c1f08423492c9d/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/3e0f2c5381664c56/build b/node_modules/zbind/.zig-cache/tmp/3e0f2c5381664c56/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/4b896e41c0e0eeb4/build b/node_modules/zbind/.zig-cache/tmp/4b896e41c0e0eeb4/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/5f715b993cde5b32/build b/node_modules/zbind/.zig-cache/tmp/5f715b993cde5b32/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/6474cd4ae00b1016/build b/node_modules/zbind/.zig-cache/tmp/6474cd4ae00b1016/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/6f700d80697c6acd/build b/node_modules/zbind/.zig-cache/tmp/6f700d80697c6acd/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/73d4f6abf1d6c0d0/build b/node_modules/zbind/.zig-cache/tmp/73d4f6abf1d6c0d0/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/78092ca8b4e4bca0/build b/node_modules/zbind/.zig-cache/tmp/78092ca8b4e4bca0/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/90402024095c773f/build b/node_modules/zbind/.zig-cache/tmp/90402024095c773f/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/9bce233c9c2eb517/build b/node_modules/zbind/.zig-cache/tmp/9bce233c9c2eb517/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/9ea309b9ab3c0662/build b/node_modules/zbind/.zig-cache/tmp/9ea309b9ab3c0662/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/a09746fc9fe7eceb/build b/node_modules/zbind/.zig-cache/tmp/a09746fc9fe7eceb/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/a5a8b6517261cec5/build b/node_modules/zbind/.zig-cache/tmp/a5a8b6517261cec5/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/ac5e09feadce2be4/build b/node_modules/zbind/.zig-cache/tmp/ac5e09feadce2be4/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/ae24f623b13c0153/build b/node_modules/zbind/.zig-cache/tmp/ae24f623b13c0153/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/af2f579d16b95d55/build b/node_modules/zbind/.zig-cache/tmp/af2f579d16b95d55/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/b14bfa9ada7ba583/build b/node_modules/zbind/.zig-cache/tmp/b14bfa9ada7ba583/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/b68332d76e0c4929/build b/node_modules/zbind/.zig-cache/tmp/b68332d76e0c4929/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/bda6c0d3d3833d7b/build b/node_modules/zbind/.zig-cache/tmp/bda6c0d3d3833d7b/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/c94cf5ba85d0d9cc/build b/node_modules/zbind/.zig-cache/tmp/c94cf5ba85d0d9cc/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/d5e1bb1c9642b3ec/build b/node_modules/zbind/.zig-cache/tmp/d5e1bb1c9642b3ec/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/d90101f358c07977/build b/node_modules/zbind/.zig-cache/tmp/d90101f358c07977/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/de69936820e241e4/build b/node_modules/zbind/.zig-cache/tmp/de69936820e241e4/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/f02f016aad76ee83/build b/node_modules/zbind/.zig-cache/tmp/f02f016aad76ee83/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/f9b948c19fed1ae2/build b/node_modules/zbind/.zig-cache/tmp/f9b948c19fed1ae2/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/tmp/f9da774ba1814c86/build b/node_modules/zbind/.zig-cache/tmp/f9da774ba1814c86/build
+new file mode 100755
+index 0000000..e69de29
+diff --git a/node_modules/zbind/.zig-cache/z/3bb49e4ca02af428123eea3aa0397b95 b/node_modules/zbind/.zig-cache/z/3bb49e4ca02af428123eea3aa0397b95
+new file mode 100644
+index 0000000..273bb0a
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/3bb49e4ca02af428123eea3aa0397b95 differ
+diff --git a/node_modules/zbind/.zig-cache/z/53d8da468c12563c8ba398391b5e75e7 b/node_modules/zbind/.zig-cache/z/53d8da468c12563c8ba398391b5e75e7
+new file mode 100644
+index 0000000..56b8d61
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/53d8da468c12563c8ba398391b5e75e7 differ
+diff --git a/node_modules/zbind/.zig-cache/z/68cdafa10367238ad89d0f49f8525521 b/node_modules/zbind/.zig-cache/z/68cdafa10367238ad89d0f49f8525521
+new file mode 100644
+index 0000000..bbc1976
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/68cdafa10367238ad89d0f49f8525521 differ
+diff --git a/node_modules/zbind/.zig-cache/z/7cfcc1bc03408d9325a9b60ba8188f2d b/node_modules/zbind/.zig-cache/z/7cfcc1bc03408d9325a9b60ba8188f2d
+new file mode 100644
+index 0000000..557ade3
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/7cfcc1bc03408d9325a9b60ba8188f2d differ
+diff --git a/node_modules/zbind/.zig-cache/z/813a826d3b1e873543369dcd136dfb51 b/node_modules/zbind/.zig-cache/z/813a826d3b1e873543369dcd136dfb51
+new file mode 100644
+index 0000000..c0800e2
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/813a826d3b1e873543369dcd136dfb51 differ
+diff --git a/node_modules/zbind/.zig-cache/z/813f53da77bf9357cac69b88591acaae b/node_modules/zbind/.zig-cache/z/813f53da77bf9357cac69b88591acaae
+new file mode 100644
+index 0000000..090fab0
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/813f53da77bf9357cac69b88591acaae differ
+diff --git a/node_modules/zbind/.zig-cache/z/89fef1486fbc5de0af2d8d556e0088e1 b/node_modules/zbind/.zig-cache/z/89fef1486fbc5de0af2d8d556e0088e1
+new file mode 100644
+index 0000000..718f245
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/89fef1486fbc5de0af2d8d556e0088e1 differ
+diff --git a/node_modules/zbind/.zig-cache/z/a5cb3098778f8ef9f055fe15af1cdc6b b/node_modules/zbind/.zig-cache/z/a5cb3098778f8ef9f055fe15af1cdc6b
+new file mode 100644
+index 0000000..ce48001
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/a5cb3098778f8ef9f055fe15af1cdc6b differ
+diff --git a/node_modules/zbind/.zig-cache/z/baa7ea17e6f52bc025a348aab14d20b3 b/node_modules/zbind/.zig-cache/z/baa7ea17e6f52bc025a348aab14d20b3
+new file mode 100644
+index 0000000..d91b6b3
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/baa7ea17e6f52bc025a348aab14d20b3 differ
+diff --git a/node_modules/zbind/.zig-cache/z/f8eecbcdd264a412549d9ca367561677 b/node_modules/zbind/.zig-cache/z/f8eecbcdd264a412549d9ca367561677
+new file mode 100644
+index 0000000..1ba12bf
+Binary files /dev/null and b/node_modules/zbind/.zig-cache/z/f8eecbcdd264a412549d9ca367561677 differ
+diff --git a/node_modules/zbind/zbind.zig b/node_modules/zbind/zbind.zig
+index dbf5d7c..abe9a03 100644
+--- a/node_modules/zbind/zbind.zig
++++ b/node_modules/zbind/zbind.zig
+@@ -32,36 +32,29 @@ pub fn build(
+ 	config: struct { //
+ 		builder: *std.Build,
+ 		root: ?[]const u8 = null,
+-		main: []const u8,
++		main: std.Build.LazyPath,
+ 		npm: ?[]const u8 = null,
+ 		out: []const u8
+-	}
++	},
++	params: anytype,
+ ) !*std.Build.Step.Compile {
+ 	const builder = config.builder;
+ 	const root = config.root orelse builder.build_root.path orelse ".";
+ 	const name = std.fs.path.basename(config.out);
+-	const target = builder.standardTargetOptions(.{});
+-	const optimize = builder.standardOptimizeOption(.{});
+ 
+-	const zbind = builder.createModule(if(@hasField(std.Build.Module, "root_source_file")) .{
+-		.root_source_file = .{ //
+-			.path = @src().file
+-		},
+-		.imports = &.{}
+-	} else .{
+-		.source_file = .{ //
+-			.path = @src().file
+-		},
+-		.dependencies = &.{}
++	const zbind = builder.createModule(.{
++		.root_source_file = builder.path(
++			try std.fs.path.relative(builder.allocator, try std.fs.cwd().realpathAlloc(builder.allocator, "."), @src().file),
++		),
+ 	});
+ 
+-	const arch = (if(@hasField(@TypeOf(target), "cpu_arch")) target else target.query).cpu_arch;
+-	const use_executable = (arch == .wasm32) and builtin.zig_version.order(std.SemanticVersion.parse("0.12.0") catch unreachable) != .lt;
++	const arch = (if(@hasField(@TypeOf(params.target), "cpu_arch")) params.target else params.target.query).cpu_arch;
++	const use_executable = (arch == .wasm32) and builtin.zig_version.order(.{ .major = 0, .minor = 12, .patch = 0 }) != .lt;
+ 	const options = .{ //
+ 		.name = name,
+-		.root_source_file = .{ .path = config.main },
+-		.target = target,
+-		.optimize = optimize
++		.root_source_file = config.main,
++		.target = params.target,
++		.optimize = params.optimize
+ 	};
+ 
+ 	const lib = if(use_executable) builder.addExecutable(options) else builder.addSharedLibrary(options);
+@@ -69,20 +62,8 @@ pub fn build(
+ 	if(arch == .wasm32) {
+ 		lib.export_memory = true;
+ 		lib.export_table = true;
++		lib.entry = .disabled;
+ 		(if(@hasField(@TypeOf(lib.*), "export_symbol_names")) lib else lib.root_module).export_symbol_names = &.{"init"};
+-	} else {
+-		if((if(@hasDecl(@TypeOf(target), "isDarwin")) target else target.result).isDarwin()) lib.linker_allow_shlib_undefined = true;
+-
+-		const include_path = try std.fs.path.resolve(builder.allocator, if(config.npm) |npm| &.{
+-			root, //
+-			npm,
+-			"node-api-headers/include"
+-		} else &.{
+-			std.fs.path.dirname(@src().file) orelse ".", //
+-			"../node-api-headers/include"
+-		});
+-
+-		(if(@hasDecl(@TypeOf(zbind.*), "addIncludePath")) zbind else lib).addIncludePath(.{ .path = include_path });
+ 	}
+ 
+ 	if(@hasDecl(@TypeOf(lib.*), "addModule")) lib.addModule("zbind", zbind) else lib.root_module.addImport("zbind", zbind);
