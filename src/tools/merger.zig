@@ -1,5 +1,47 @@
 const std = @import("std");
 const fauna = @import("fauna");
+const builtin = @import("builtin");
+
+pub fn mergeSchemas(allocator: std.mem.Allocator, trees: []const fauna.SchemaTree) !fauna.SchemaTree {
+    if (trees.len == 0) {
+        return .{ .allocator = allocator };
+    }
+
+    const total_len = blk: {
+        var i: usize = 0;
+        for (trees) |tree| {
+            if (!builtin.cpu.arch.isWasm()) {
+                // don't check for wasm because wasm allocator has undefined ptr
+                std.debug.assert(tree.allocator.ptr == allocator.ptr);
+            }
+            std.debug.assert(tree.allocator.vtable == allocator.vtable);
+
+            if (tree.declarations) |decls| {
+                i += decls.len;
+            }
+        }
+
+        break :blk i;
+    };
+
+    var all_decls = try allocator.alloc(fauna.SchemaDefinition, total_len);
+    var i: usize = 0;
+    for (trees) |tree| {
+        if (tree.declarations) |decls| {
+            for (decls) |decl| {
+                all_decls[i] = decl;
+                i += 1;
+            }
+
+            tree.allocator.free(decls);
+        }
+    }
+
+    return .{
+        .allocator = allocator,
+        .declarations = all_decls,
+    };
+}
 
 pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
     const old_decls = tree.declarations orelse return;

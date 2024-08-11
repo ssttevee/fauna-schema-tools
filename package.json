@@ -1,16 +1,35 @@
 {
+  "name": "@insights-gaming/rollup-plugin-fauna-v10",
+  "version": "1.0.0",
+  "license": "MIT",
   "scripts": {
     "prepare": "patch-package",
-    "build-wasm": "zig build -Doptimize=ReleaseSmall -Dtarget=wasm32-wasi && npx zbind src/root.wasm src/zig.ts",
+    "build-wasm": "zig build -Doptimize=ReleaseSmall -Dtarget=wasm32-wasi && zbind dist/root.wasm src/zig.ts",
     "start": "esrun src/main.ts"
   },
   "dependencies": {
+    "glob": "^11.0.0",
     "zbind": "^0.0.10"
   },
   "devDependencies": {
     "@types/node": "^20.14.11",
     "esbuild": "^0.23.0",
     "esrun": "^3.2.26",
-    "patch-package": "^8.0.0"
+    "patch-package": "^8.0.0",
+    "rollup": "^4.20.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/main.ts",
+      "require": "./src/main.ts"
+    },
+    "./wasm": {
+      "import": "./dist/root.wasm",
+      "require": "./dist/root.wasm"
+    },
+    "./wasm-embedded": {
+      "import": "./dist/root.wasm.mjs",
+      "require": "./dist/root.wasm.mjs"
+    }
   }
 }

@@ -4,4 +4,3 @@
 /zig-cache
 /zig-out
 /src/zig.ts
-/src/root.wasm
