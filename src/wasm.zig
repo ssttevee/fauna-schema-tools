@@ -38,16 +38,41 @@ pub fn printCanonicalTree(tree: fauna.SchemaTree) ?[]const u8 {
     };
 }
 
-fn linkFunctionsInternal(tree: fauna.SchemaTree) !void {
-    return linker.linkFunctions(std.heap.wasm_allocator, tree);
+fn linkFunctionsInternal(tree: fauna.SchemaTree) ![]const u8 {
+    var mangled_func_names = try linker.linkFunctions(std.heap.wasm_allocator, tree);
+    defer {
+        var original_name_iterator = mangled_func_names.keyIterator();
+        while (original_name_iterator.next()) |original_name| {
+            tree.allocator.free(original_name.*);
+        }
+
+        mangled_func_names.deinit();
+    }
+
+    var out = std.ArrayList(u8).init(std.heap.wasm_allocator);
+    defer out.deinit();
+
+    {
+        var s = std.json.writeStream(out.writer(), .{});
+        s.deinit();
+
+        var it = mangled_func_names.iterator();
+        try s.beginObject();
+        while (it.next()) |entry| {
+            try s.objectField(entry.key_ptr.*);
+            try s.write(entry.value_ptr.*);
+        }
+        try s.endObject();
+    }
+
+    return out.toOwnedSlice();
 }
 
-pub fn linkFunctions(tree: fauna.SchemaTree) bool {
-    linkFunctionsInternal(tree) catch |err| {
+pub fn linkFunctions(tree: fauna.SchemaTree) ?[]const u8 {
+    return linkFunctionsInternal(tree) catch |err| {
         std.debug.print("Error: {any}\n", .{err});
-        return false;
+        return null;
     };
-    return true;
 }
 
 fn mergeRolesInternal(tree: *fauna.SchemaTree) !void {
@@ -74,14 +99,31 @@ pub fn mergeSchemas(a: fauna.SchemaTree, b: fauna.SchemaTree) ?fauna.SchemaTree 
     };
 }
 
-fn parseSchemaTreeInternal(schema: []const u8) !fauna.SchemaTree {
-    var stream = std.io.fixedBufferStream(schema);
-
-    return try fauna.SchemaTree.parse(std.heap.wasm_allocator, stream.reader().any(), "memory");
+pub fn sortSchemaTree(tree: fauna.SchemaTree) void {
+    if (tree.declarations) |decls| {
+        std.mem.sort(fauna.SchemaDefinition, decls, {}, (struct {
+            fn lessThan(_: void, lhs: fauna.SchemaDefinition, rhs: fauna.SchemaDefinition) bool {
+                return std.mem.lessThan(u8, @tagName(lhs), @tagName(rhs)) or std.mem.lessThan(u8, lhs.name(), rhs.name());
+            }
+        }).lessThan);
+    }
 }
 
-pub fn parseSchemaTree(schema: []const u8) ?fauna.SchemaTree {
-    return parseSchemaTreeInternal(schema) catch |err| {
+fn parseSchemaTreeInternal(schema: []const u8, filename: ?[]const u8) !fauna.SchemaTree {
+    var stream = std.io.fixedBufferStream(schema);
+
+    return try fauna.SchemaTree.parse(std.heap.wasm_allocator, stream.reader().any(), filename orelse "memory");
+}
+
+pub fn parseSchemaTree(schema: []const u8, filename: ?[]const u8) ?fauna.SchemaTree {
+    return parseSchemaTreeInternal(schema, filename) catch |err| {
+        std.debug.print("Error: {any}\n", .{err});
+        return null;
+    };
+}
+
+pub fn cloneSchemaTree(tree: fauna.SchemaTree) ?fauna.SchemaTree {
+    return tree.dupe(std.heap.wasm_allocator) catch |err| {
         std.debug.print("Error: {any}\n", .{err});
         return null;
     };

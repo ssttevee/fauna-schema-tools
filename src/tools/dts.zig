@@ -1,4 +1,6 @@
 const std = @import("std");
+const testing = std.testing;
+
 const fauna = @import("fauna");
 
 fn isOptionalType(fql_type: fauna.FQLType) bool {
@@ -35,11 +37,11 @@ fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).
             } else if (std.mem.eql(u8, identifier, "Any")) {
                 try writer.writeAll("any");
             } else if (std.mem.eql(u8, identifier, "Time")) {
-                try writer.writeAll("import(\"fauna\").FaunaTime");
+                try writer.writeAll("import(\"fauna\").TimeStub");
             } else if (std.mem.eql(u8, identifier, "Bytes")) {
-                try writer.writeAll("import(\"fauna\").Bytes");
+                try writer.writeAll("Uint8Array");
             } else if (std.mem.eql(u8, identifier, "Date")) {
-                try writer.writeAll("import(\"fauna\").FaunaDate");
+                try writer.writeAll("import(\"fauna\").DateStub");
             } else {
                 try writer.writeAll(identifier);
             }
@@ -169,19 +171,39 @@ fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).
 }
 
 fn printTypescriptType(w: anytype, col: fauna.SchemaDefinition.Collection) !void {
-    try std.fmt.format(w, "export interface {s} {{\n", .{col.name});
+    try std.fmt.format(w, "export type {s} = {{\n", .{col.name});
+
+    var has_fields = false;
     if (col.members) |members| {
         for (members) |member| {
+            if (!has_fields) {
+                has_fields = member == .field;
+            }
+
             switch (member) {
                 inline .field, .computed_field => |field| {
-                    try std.fmt.format(w, "    {s}: ", .{field.name});
+                    try std.fmt.format(w, "    {s}", .{field.name});
                     if (@typeInfo(@TypeOf(field.type)) == .Optional) {
                         if (field.type) |field_type| {
+                            const optional = isOptionalType(field_type);
+                            if (optional) {
+                                try w.writeByte('?');
+                            }
+
+                            try w.writeAll(": ");
+
                             try printConvertedType(w, field_type);
                         } else {
-                            try std.fmt.format(w, "unknown", .{});
+                            try std.fmt.format(w, ": any", .{});
                         }
                     } else {
+                        const optional = isOptionalType(field.type);
+                        if (optional) {
+                            try w.writeByte('?');
+                        }
+
+                        try w.writeAll(": ");
+
                         try printConvertedType(w, field.type);
                     }
 
@@ -190,6 +212,10 @@ fn printTypescriptType(w: anytype, col: fauna.SchemaDefinition.Collection) !void
                 else => {},
             }
         }
+    }
+
+    if (!has_fields) {
+        try std.fmt.format(w, "    [name: string]: any;\n", .{});
     }
 
     try std.fmt.format(w, "}}\n\n", .{});

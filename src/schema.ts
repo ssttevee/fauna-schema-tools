@@ -16,9 +16,9 @@ export class Schema {
    *
    * @param schemas - The list of schemas to merge.
    */
-  public static from(schemas: Schema[]): Schema {
+  public static merge(schemas: Schema[]): Schema {
     if (!schemas.length) {
-      return new Schema("");
+      return Schema.parse("");
     }
 
     let schema = schemas[0];
@@ -34,18 +34,33 @@ export class Schema {
     return schema;
   }
 
-  public constructor(strSchema: string) {
-    const tree = zig.parseSchemaTree(strSchema);
+  public static parse(strSchema: string, filename?: string): Schema {
+    const tree = zig.parseSchemaTree(strSchema, filename || null);
     if (!tree) {
       throw new Error("Failed to parse schema");
     }
 
-    this.#data = tree;
+    return new Schema(tree);
   }
 
-  public linkFunctions(): void {
-    if (!zig.linkFunctions(this.#data)) {
+  private constructor(data: OpaqueStruct) {
+    this.#data = data;
+  }
+
+  public sort(): void {
+    zig.sortSchemaTree(this.#data);
+  }
+
+  public linkFunctions(): Record<string, string> {
+    const json = zig.linkFunctions(this.#data);
+    if (!json) {
       throw new Error("Failed to link functions");
+    }
+
+    try {
+      return JSON.parse(json.toString());
+    } finally {
+      zig.freeBytes(json);
     }
   }
 
@@ -90,5 +105,14 @@ export class Schema {
 
   public [Symbol.dispose](): void {
     this.free();
+  }
+
+  public clone(): Schema {
+    const tree = zig.cloneSchemaTree(this.#data);
+    if (!tree) {
+      throw new Error("Failed to clone schema");
+    }
+
+    return new Schema(tree);
   }
 }

@@ -24,12 +24,9 @@
     // internet connectivity.
     .dependencies = .{
         .fauna10 = .{
-            .path = "../fauna-schema-language-parser",
+            .url = "https://github.com/ssttevee/fauna-schema-language-parser/archive/63d1efbfc647142db0770e691483258505e187d5.tar.gz",
+            .hash = "1220c2465c3b09104b7fb329e51537f3007d3a82eb2e878dcb5793f12b9b5290d919",
         },
-        // .fauna10 = .{
-        //     .url = "https://github.com/ssttevee/fauna-schema-language-parser/archive/aca0b46f8092af2d4e24a7f71804ede1c02005c5.tar.gz",
-        //     .hash = "1220634078831c97991dd1375f82481812c997d8b60de3b47c452b68de851fdd7637",
-        // },
     },
     .paths = .{
         "build.zig",

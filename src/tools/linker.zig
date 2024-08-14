@@ -39,7 +39,12 @@ const FunctionInfo = struct {
     }
 };
 
-pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !void {
+/// This function "mangles" the names of all functions using the hash of the
+/// canonical representation while maintaining reference integrity.
+///
+/// The returned hashmap owns the pointers to the keys, but not the values,
+/// which are owned by the AST.
+pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !std.StringHashMap([]const u8) {
     var funcs = try findFunctionDependencies(allocator, tree);
     defer {
         for (funcs.values()) |*info| {
@@ -55,7 +60,7 @@ pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !void
 
     // map of original func names -> mangled func names
     var mangled_func_names = std.StringHashMap([]const u8).init(allocator);
-    defer {
+    errdefer {
         // Original names should have been all swapped out for mangled names in
         // the AST, so free original names but not the mangled names.
         var original_name_iterator = mangled_func_names.keyIterator();
@@ -152,6 +157,8 @@ pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !void
             }
         }
     }
+
+    return mangled_func_names;
 }
 
 const CycleVisitor = struct {
