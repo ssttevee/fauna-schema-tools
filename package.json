@@ -7,7 +7,6 @@
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "prepare": "patch-package",
     "prepack": "npm run build-wasm && npm run build",
     "build-wasm": "zig build -Doptimize=ReleaseSmall -Dtarget=wasm32-wasi && zbind dist/root.wasm src/zig.ts",
     "build": "rollup -c"
@@ -17,7 +16,7 @@
     "chokidar": "^3.6.0",
     "estree-walker": "^3.0.3",
     "magic-string": "^0.30.11",
-    "zbind": "^0.0.10"
+    "zbind": "^0.0.11"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.6",

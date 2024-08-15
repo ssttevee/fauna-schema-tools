@@ -11,15 +11,14 @@ pub fn build(b: *std.Build) !void {
         const addon = try zbind.build(
             .{
                 .builder = b,
-                .main = b.path("src/wasm.zig"),
+                .main = "src/wasm.zig",
                 .out = "dist/root",
-            },
-            .{
                 .target = target,
                 .optimize = optimize,
             },
         );
 
+        addon.entry = .disabled;
         addon.root_module.addImport("fauna", fauna.module("root"));
     } else {
         const exe = b.addExecutable(.{
