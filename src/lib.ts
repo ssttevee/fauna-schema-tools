@@ -7,6 +7,7 @@ export { init, Schema } from "./schema";
 
 export type PushSchemaOptions = {
   retainRevisions?: number;
+  tempdir?: string;
 } & ({ key: string } | { endpoint: string; key?: string });
 
 const sourceMapComment =
@@ -118,7 +119,7 @@ async function pullSchemaFile(
   endpoint: string,
   key: string,
   filename: string,
-  destdir = "combined",
+  destdir: string,
 ): Promise<Schema | null> {
   const res = await fetch(
     new URL(`/schema/1/files/${encodeURIComponent(filename)}`, endpoint),
@@ -145,7 +146,7 @@ async function pullSchemaFile(
 async function pullRevisionsAndRoles(
   endpoint: string,
   key: string,
-  destdir = "combined",
+  destdir: string,
 ): Promise<{ revisions: Schema[]; roles?: Schema; [Symbol.dispose](): void }> {
   const filesResponse = await fetch(new URL("/schema/1/files", endpoint), {
     method: "GET",
@@ -159,6 +160,8 @@ async function pullRevisionsAndRoles(
     throw new Error(files.error.message);
   }
 
+  console.log(files);
+
   await fs.rm(destdir, { force: true, recursive: true });
 
   const revisions = await Promise.all(
@@ -171,11 +174,11 @@ async function pullRevisionsAndRoles(
       .map((revision) => Number.parseInt(revision, 10))
       .sort()
       .map((revision) =>
-        pullSchemaFile(endpoint, key, `functions_${revision}.fsl`),
+        pullSchemaFile(endpoint, key, `functions_${revision}.fsl`, destdir),
       ),
   );
 
-  const roles = await pullSchemaFile(endpoint, key, "roles.fsl");
+  const roles = await pullSchemaFile(endpoint, key, "roles.fsl", destdir);
 
   return {
     revisions,
@@ -209,12 +212,19 @@ export async function pushSchema(
   schema: Schema,
   options: PushSchemaOptions,
 ): Promise<void> {
+  const tempdir = options.tempdir || ".fst";
   const endpoint =
     (options as { endpoint?: string }).endpoint || "https://db.fauna.com";
   const key = options.key || "";
   const retain = options.retainRevisions || 10;
 
-  using saved = await pullRevisionsAndRoles(endpoint, key);
+  await fs.rm(tempdir, { recursive: true, force: true });
+
+  using saved = await pullRevisionsAndRoles(
+    endpoint,
+    key,
+    path.join(tempdir, "pulled"),
+  );
 
   using accessProviders = schema.filterByType(DeclarationType.ACCESS_PROVIDER);
   using collections = schema.filterByType(DeclarationType.COLLECTION);
@@ -256,9 +266,20 @@ export async function pushSchema(
   const body = new FormData();
   const sourcemaps = new Map<string, SourceMapConsumer>();
 
-  appendSchemaToBody(body, sourcemaps, accessProviders, "access_providers.fsl");
-  appendSchemaToBody(body, sourcemaps, collections, "collections.fsl");
-  appendSchemaToBody(body, sourcemaps, roles, "roles.fsl");
+  if (accessProviders.length) {
+    await appendSchemaToBody(
+      body,
+      sourcemaps,
+      accessProviders,
+      "access_providers.fsl",
+    );
+  }
+  if (collections.length) {
+    await appendSchemaToBody(body, sourcemaps, collections, "collections.fsl");
+  }
+  if (roles.length) {
+    await appendSchemaToBody(body, sourcemaps, roles, "roles.fsl");
+  }
 
   for (const [i, revision] of saved.revisions
     .filter((schema) => schema.length)
@@ -266,8 +287,14 @@ export async function pushSchema(
     appendSchemaToBody(body, sourcemaps, revision, `functions_${i}.fsl`);
   }
 
-  console.log(sourcemaps.entries());
+  for (const [filename, content] of body.entries()) {
+    await writeIfChanged(
+      path.join(tempdir, "pushing", filename),
+      content as string,
+    );
+  }
 
+  const validationStart = Date.now();
   const validationResponse = await fetch(
     new URL("/schema/1/validate?force=true", endpoint),
     {
@@ -283,8 +310,11 @@ export async function pushSchema(
     throw new Error("Validation failed");
   }
 
+  console.log(`validation took ${Date.now() - validationStart}ms`);
+
   console.log(validation.diff);
 
+  const updateStart = Date.now();
   const updateResponse = await fetch(
     new URL(`/schema/1/update?version=${validation.version}`, endpoint),
     {
@@ -300,7 +330,11 @@ export async function pushSchema(
     throw new Error("Update failed");
   }
 
+  console.log(`update took ${Date.now() - updateStart}ms`);
+
   console.log(json);
+
+  await fs.rm(tempdir, { recursive: true, force: true });
 }
 
 export async function writeIfChanged(

@@ -135,6 +135,17 @@ interface OutputOptions {
   };
 }
 
+async function time<F extends (...args: unknown[]) => Promise<unknown>>(
+  name: string,
+  fn: F,
+  ...args: Parameters<F>
+): Promise<Awaited<ReturnType<F>>> {
+  const start = Date.now();
+  const result = await fn(...args);
+  console.log(`${name} took ${Date.now() - start}ms`);
+  return result as Awaited<ReturnType<F>>;
+}
+
 async function writeAndPush(
   [schema, names]: ReturnType<typeof mergeSchemas>,
   output?: OutputOptions,
@@ -142,11 +153,26 @@ async function writeAndPush(
   try {
     await Promise.all([
       output?.dtspath &&
-        writeIfChanged(output.dtspath, schema.getTypescriptDefinitions()),
+        time(
+          `wrote ${output.dtspath}`,
+          writeIfChanged,
+          output.dtspath,
+          schema.getTypescriptDefinitions(),
+        ),
       output?.fnspath &&
-        writeIfChanged(output.fnspath, generateFnsMapFile(names)),
+        time(
+          `wrote ${output.fnspath}`,
+          writeIfChanged,
+          output.fnspath,
+          generateFnsMapFile(names),
+        ),
       output?.schema?.path &&
-        writeIfChanged(output.schema.path, schema.toString()),
+        time(
+          `wrote ${output.schema.path}`,
+          writeIfChanged,
+          output.schema.path,
+          schema.toString(),
+        ),
       output?.schema?.push && pushSchema(schema, output.schema.push),
     ]);
   } finally {
@@ -164,7 +190,7 @@ async function build(
         this.close();
         resolve(schemas);
       }, schemapaths);
-      sleep(100).then(() => {
+      sleep(500).then(() => {
         resolve({});
         w.close();
       });
@@ -182,9 +208,7 @@ async function build(
   const mergedSchema = mergeSchemas(schemas.map((s) => s.tree));
   console.log(`merged schema in ${Date.now() - start}ms`);
 
-  const writeStart = Date.now();
   await writeAndPush(mergedSchema, output);
-  console.log(`generated and wrote files in ${Date.now() - writeStart}ms`);
 }
 
 function watch(
@@ -285,8 +309,8 @@ const link = command({
 
     if (args.push) {
       const push: PushSchemaOptions = args.pushkey
-        ? { key: args.pushkey }
-        : { endpoint: args.endpoint };
+        ? { key: args.pushkey, endpoint: args.endpoint }
+        : { endpoint: args.endpoint || "http://localhost:8443", key: "secret" };
       if (args.retain) {
         push.retainRevisions = args.retain;
       }
