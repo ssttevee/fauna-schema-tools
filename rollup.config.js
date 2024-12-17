@@ -38,7 +38,14 @@ export default [
         entryFileNames: "[name].cjs",
       },
     ],
-    external: ["node:fs/promises", "node:path", "chokidar"],
+    external: [
+      "node:fs/promises",
+      "node:path",
+      "chokidar",
+      "source-map",
+      "jennifer-js",
+      "cmd-ts",
+    ],
     plugins: [
       typescript(),
       resolve(),
