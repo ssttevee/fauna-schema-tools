@@ -237,7 +237,7 @@ const link = command({
       long: "schema-out",
       short: "s",
       description: "Output path for combined fsl file",
-      type: string,
+      type: optional(string),
     }),
     push: flag({
       long: "push",
@@ -268,9 +268,7 @@ const link = command({
   },
   handler: (args) => {
     const output: OutputOptions = {
-      schema: {
-        path: args.schemaout,
-      },
+      schema: {},
     };
 
     if (args.typesout) {
@@ -279,6 +277,10 @@ const link = command({
 
     if (args.namesout) {
       output.fnspath = args.namesout;
+    }
+
+    if (args.schemaout) {
+      output.schema.path = args.schemaout;
     }
 
     if (args.push) {
