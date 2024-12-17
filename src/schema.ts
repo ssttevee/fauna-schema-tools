@@ -1,8 +1,15 @@
-import { OpaqueStruct } from "zbind";
+import type { OpaqueStruct } from "zbind";
 import * as zig from "./zig";
 
-export function init(source?: WebAssembly.Module | BufferSource | string) {
+export function init(source?: BufferSource | string) {
   zig.$init(source);
+}
+
+export enum DeclarationType {
+  ACCESS_PROVIDER = "access_provider",
+  COLLECTION = "collection",
+  FUNCTION = "function",
+  ROLE = "role",
 }
 
 export class Schema {
@@ -21,7 +28,7 @@ export class Schema {
       return Schema.parse("");
     }
 
-    let schema = schemas[0];
+    const schema = schemas[0];
     for (const other of schemas.slice(1)) {
       const result = zig.mergeSchemas(schema.#data, other.#data);
       if (!result) {
@@ -47,6 +54,10 @@ export class Schema {
     this.#data = data;
   }
 
+  public get length(): number {
+    return zig.getSchemaTreeLength(this.#data);
+  }
+
   public sort(): void {
     zig.sortSchemaTree(this.#data);
   }
@@ -64,15 +75,20 @@ export class Schema {
     }
   }
 
-  public mergeRoles(): void {
+  public mergeRoles(): this {
     const tree = zig.mergeRoles(this.#data);
     if (!tree) {
       throw new Error("Failed to merge roles");
     }
 
     this.#data = tree;
+
+    return this;
   }
 
+  /**
+   * Returns the type definitions as a string that can be written to a file.
+   */
   public getTypescriptDefinitions(): string {
     const str = zig.generateTypescriptDefinitions(this.#data);
     if (!str) {
@@ -86,8 +102,72 @@ export class Schema {
     }
   }
 
-  public toString(): string {
-    const str = zig.printCanonicalTree(this.#data);
+  /**
+   * Creates a new schema using only declarations of the specified type from the current schema.
+   */
+  public filterByType(type: DeclarationType): Schema {
+    const tree = zig.filterSchemaTreeByType(this.#data, type);
+    if (!tree) {
+      throw new Error("Failed to filter schema by type");
+    }
+
+    return new Schema(tree);
+  }
+
+  /**
+   * Removes a declaration by type and name.
+   *
+   * @returns {boolean} - Whether the declaration was removed.
+   */
+  public removeDeclaration(type: DeclarationType, name: string): boolean {
+    const beforeLength = this.length;
+    this.#data = zig.removeSchemaTreeDeclaration(this.#data, type, name);
+    return this.length !== beforeLength;
+  }
+
+  /**
+   * Removes references to a resource from all role declarations.
+   */
+  public removeRolesResource(resourceName: string): void {
+    zig.removeSchemaTreeRolesResource(this.#data, resourceName);
+  }
+
+  public get declarations(): Array<{
+    type: DeclarationType;
+    name: string;
+    resources?: string[];
+  }> {
+    const json = zig.listSchemaTreeDeclarations(this.#data);
+    if (!json) {
+      throw new Error("Failed to list declarations");
+    }
+
+    try {
+      return JSON.parse(json.toString());
+    } finally {
+      zig.freeBytes(json);
+    }
+  }
+
+  /**
+   * Convert the schema to a string.
+   * @param mangledNames - A map of mangled names to their original names. This is the same as the output of `linkFunctions`.
+   */
+  public toString(options?: {
+    sourceMapFilename?: string;
+    mangledNames?: Record<string, string>;
+    sources?: Record<string, string>;
+  }): string {
+    const str = zig.printCanonicalTree(
+      this.#data,
+      options?.sourceMapFilename || null,
+      options?.sourceMapFilename && options?.mangledNames
+        ? JSON.stringify(options.mangledNames)
+        : null,
+      options?.sourceMapFilename && options?.sources
+        ? JSON.stringify(options.sources)
+        : null,
+    );
     if (!str) {
       throw new Error("Failed to print canonical tree");
     }

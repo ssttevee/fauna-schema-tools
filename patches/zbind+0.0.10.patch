@@ -1,0 +1,112 @@
+diff --git a/node_modules/zbind/dist/index.d.ts b/node_modules/zbind/dist/index.d.ts
+index 1c26425..fb6a94e 100644
+--- a/node_modules/zbind/dist/index.d.ts
++++ b/node_modules/zbind/dist/index.d.ts
+@@ -34,5 +34,5 @@ interface Reflection {
+     stackBase: number;
+     wrappers: CallableFunction[];
+ }
+-export declare function $bind(source: BufferSource | string, callback?: () => void): Reflection;
++export declare function $bind(source: WebAssembly.Module | BufferSource | string, callback?: () => void): Reflection;
+ export {};
+diff --git a/node_modules/zbind/dist/index.js b/node_modules/zbind/dist/index.js
+index f5d56a6..db64fda 100644
+--- a/node_modules/zbind/dist/index.js
++++ b/node_modules/zbind/dist/index.js
+@@ -99,7 +99,7 @@ function bindWasm(source, callback) {
+         return mem;
+     }
+     var wasi = (0, makeWasi_1.makeWasi)(memory);
+-    var module = new WebAssembly.Module(source);
++    var module = source instanceof WebAssembly.Module ? source : new WebAssembly.Module(source);
+     var imports = {
+         env: { _callback: callback }
+     };
+diff --git a/node_modules/zbind/src/prologue.ts b/node_modules/zbind/src/prologue.ts
+index 0e10dcd..d94c3cc 100644
+--- a/node_modules/zbind/src/prologue.ts
++++ b/node_modules/zbind/src/prologue.ts
+@@ -27,7 +27,7 @@ export function $create() {
+ 		$slots[$mem.F64[$top]]();
+ 	}
+ 
+-	function $init(source: BufferSource | string = $defaultPath()) {
++	function $init(source: WebAssembly.Module | BufferSource | string = $defaultPath()) {
+ 		const deps = $bind(source, $callback);
+ 		$getMemory = deps.getMemory;
+ 		$wrappers = deps.wrappers;
+diff --git a/node_modules/zbind/zbind.zig b/node_modules/zbind/zbind.zig
+index dbf5d7c..abe9a03 100644
+--- a/node_modules/zbind/zbind.zig
++++ b/node_modules/zbind/zbind.zig
+@@ -32,36 +32,29 @@ pub fn build(
+ 	config: struct { //
+ 		builder: *std.Build,
+ 		root: ?[]const u8 = null,
+-		main: []const u8,
++		main: std.Build.LazyPath,
+ 		npm: ?[]const u8 = null,
+ 		out: []const u8
+-	}
++	},
++	params: anytype,
+ ) !*std.Build.Step.Compile {
+ 	const builder = config.builder;
+ 	const root = config.root orelse builder.build_root.path orelse ".";
+ 	const name = std.fs.path.basename(config.out);
+-	const target = builder.standardTargetOptions(.{});
+-	const optimize = builder.standardOptimizeOption(.{});
+ 
+-	const zbind = builder.createModule(if(@hasField(std.Build.Module, "root_source_file")) .{
+-		.root_source_file = .{ //
+-			.path = @src().file
+-		},
+-		.imports = &.{}
+-	} else .{
+-		.source_file = .{ //
+-			.path = @src().file
+-		},
+-		.dependencies = &.{}
++	const zbind = builder.createModule(.{
++		.root_source_file = builder.path(
++			try std.fs.path.relative(builder.allocator, try std.fs.cwd().realpathAlloc(builder.allocator, "."), @src().file),
++		),
+ 	});
+ 
+-	const arch = (if(@hasField(@TypeOf(target), "cpu_arch")) target else target.query).cpu_arch;
+-	const use_executable = (arch == .wasm32) and builtin.zig_version.order(std.SemanticVersion.parse("0.12.0") catch unreachable) != .lt;
++	const arch = (if(@hasField(@TypeOf(params.target), "cpu_arch")) params.target else params.target.query).cpu_arch;
++	const use_executable = (arch == .wasm32) and builtin.zig_version.order(.{ .major = 0, .minor = 12, .patch = 0 }) != .lt;
+ 	const options = .{ //
+ 		.name = name,
+-		.root_source_file = .{ .path = config.main },
+-		.target = target,
+-		.optimize = optimize
++		.root_source_file = config.main,
++		.target = params.target,
++		.optimize = params.optimize
+ 	};
+ 
+ 	const lib = if(use_executable) builder.addExecutable(options) else builder.addSharedLibrary(options);
+@@ -69,20 +62,8 @@ pub fn build(
+ 	if(arch == .wasm32) {
+ 		lib.export_memory = true;
+ 		lib.export_table = true;
++		lib.entry = .disabled;
+ 		(if(@hasField(@TypeOf(lib.*), "export_symbol_names")) lib else lib.root_module).export_symbol_names = &.{"init"};
+-	} else {
+-		if((if(@hasDecl(@TypeOf(target), "isDarwin")) target else target.result).isDarwin()) lib.linker_allow_shlib_undefined = true;
+-
+-		const include_path = try std.fs.path.resolve(builder.allocator, if(config.npm) |npm| &.{
+-			root, //
+-			npm,
+-			"node-api-headers/include"
+-		} else &.{
+-			std.fs.path.dirname(@src().file) orelse ".", //
+-			"../node-api-headers/include"
+-		});
+-
+-		(if(@hasDecl(@TypeOf(zbind.*), "addIncludePath")) zbind else lib).addIncludePath(.{ .path = include_path });
+ 	}
+ 
+ 	if(@hasDecl(@TypeOf(lib.*), "addModule")) lib.addModule("zbind", zbind) else lib.root_module.addImport("zbind", zbind);

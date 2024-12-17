@@ -9,11 +9,11 @@ fn isOptionalType(fql_type: fauna.FQLType) bool {
             return true;
         },
         .@"union" => |u| {
-            if (u.lhs.* == .named and std.mem.eql(u8, u.lhs.named, "Null")) {
+            if (u.lhs.* == .named and std.mem.eql(u8, u.lhs.named.text, "Null")) {
                 return true;
             }
 
-            if (u.rhs.* == .named and std.mem.eql(u8, u.rhs.named, "Null")) {
+            if (u.rhs.* == .named and std.mem.eql(u8, u.rhs.named.text, "Null")) {
                 return true;
             }
 
@@ -26,24 +26,24 @@ fn isOptionalType(fql_type: fauna.FQLType) bool {
 fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).Error!void {
     switch (fql_type) {
         .named => |identifier| {
-            if (std.mem.eql(u8, identifier, "Null")) {
+            if (std.mem.eql(u8, identifier.text, "Null")) {
                 try writer.writeAll("null");
-            } else if (std.mem.eql(u8, identifier, "String")) {
+            } else if (std.mem.eql(u8, identifier.text, "String")) {
                 try writer.writeAll("string");
-            } else if (std.mem.eql(u8, identifier, "Number")) {
+            } else if (std.mem.eql(u8, identifier.text, "Number")) {
                 try writer.writeAll("number");
-            } else if (std.mem.eql(u8, identifier, "Boolean")) {
+            } else if (std.mem.eql(u8, identifier.text, "Boolean")) {
                 try writer.writeAll("boolean");
-            } else if (std.mem.eql(u8, identifier, "Any")) {
+            } else if (std.mem.eql(u8, identifier.text, "Any")) {
                 try writer.writeAll("any");
-            } else if (std.mem.eql(u8, identifier, "Time")) {
+            } else if (std.mem.eql(u8, identifier.text, "Time")) {
                 try writer.writeAll("import(\"fauna\").TimeStub");
-            } else if (std.mem.eql(u8, identifier, "Bytes")) {
+            } else if (std.mem.eql(u8, identifier.text, "Bytes")) {
                 try writer.writeAll("Uint8Array");
-            } else if (std.mem.eql(u8, identifier, "Date")) {
+            } else if (std.mem.eql(u8, identifier.text, "Date")) {
                 try writer.writeAll("import(\"fauna\").DateStub");
             } else {
-                try writer.writeAll(identifier);
+                try writer.writeAll(identifier.text);
             }
         },
         .object => |obj| {
@@ -64,7 +64,7 @@ fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).
                                 try writer.writeAll("[key: string]");
                             },
                             inline .string, .identifier => |s| {
-                                try writer.writeAll(s);
+                                try writer.writeAll(s.text);
                             },
                         }
 
@@ -90,18 +90,18 @@ fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).
             try printConvertedType(writer, u.rhs.*);
         },
         .optional => |optional| {
-            try printConvertedType(writer, optional.*);
+            try printConvertedType(writer, optional.type.*);
             try writer.writeAll(" | null | undefined");
         },
         .template => |template| {
-            if (std.mem.eql(u8, template.name, "Ref") and template.parameters != null and template.parameters.?.len == 1) {
+            if (std.mem.eql(u8, template.name.text, "Ref") and template.parameters != null and template.parameters.?.len == 1) {
                 try writer.writeAll("import(\"fauna\").DocumentT<");
                 try printConvertedType(writer, template.parameters.?[0]);
                 try writer.writeByte('>');
                 return;
             }
 
-            try writer.writeAll(template.name);
+            try writer.writeAll(template.name.text);
             try writer.writeByte('<');
             if (template.parameters) |params| {
                 for (params, 0..) |param, i| {
@@ -129,11 +129,8 @@ fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).
 
             try writer.writeByte(']');
         },
-        .string_literal => |string_literal| {
-            try writer.writeAll(string_literal);
-        },
-        .number_literal => |number_literal| {
-            try writer.writeAll(number_literal);
+        inline .string_literal, .number_literal => |literal| {
+            try writer.writeAll(literal.text);
         },
         .function => |function| {
             switch (function.parameters) {
@@ -164,7 +161,7 @@ fn printConvertedType(writer: anytype, fql_type: fauna.FQLType) @TypeOf(writer).
         },
         .isolated => |isolated| {
             try writer.writeByte('(');
-            try printConvertedType(writer, isolated.*);
+            try printConvertedType(writer, isolated.type.*);
             try writer.writeByte(')');
         },
     }
@@ -220,9 +217,47 @@ fn printTypescriptType(w: anytype, col: fauna.SchemaDefinition.Collection) !void
 
     try std.fmt.format(w, "}}\n\n", .{});
 
-    if (col.alias != null and col.alias.? == .identifier) {
-        try std.fmt.format(w, "export type {s} = {s};\n\n", .{ col.alias.?.identifier, col.name });
+    if (col.alias != null and col.alias.?.value == .identifier) {
+        try std.fmt.format(w, "export type {s} = {s};\n\n", .{ col.alias.?.value.identifier.text, col.name });
     }
+}
+
+fn toCamelCase(buf: []u8, str: []const u8) ![]const u8 {
+    var state: enum {
+        between_words,
+        in_word,
+    } = .between_words;
+
+    var i: usize = 0;
+    for (str) |c| {
+        switch (state) {
+            .between_words => {
+                if (std.ascii.isAlphanumeric(c)) {
+                    if (i >= buf.len) {
+                        return error.NoSpaceLeft;
+                    }
+
+                    buf[i] = std.ascii.toUpper(c);
+                    i += 1;
+                    state = .in_word;
+                }
+            },
+            .in_word => {
+                if (std.ascii.isAlphanumeric(c)) {
+                    if (i >= buf.len) {
+                        return error.NoSpaceLeft;
+                    }
+
+                    buf[i] = c;
+                    i += 1;
+                } else {
+                    state = .between_words;
+                }
+            },
+        }
+    }
+
+    return buf[0..i];
 }
 
 pub fn printTypescriptDefinitions(writer: anytype, tree: fauna.SchemaTree) !void {
@@ -234,5 +269,18 @@ pub fn printTypescriptDefinitions(writer: anytype, tree: fauna.SchemaTree) !void
 
             try printTypescriptType(writer, decl.collection);
         }
+
+        try std.fmt.format(writer, "export enum CollectionName {{\n", .{});
+
+        var buf: [64]u8 = undefined;
+        for (declarations) |decl| {
+            if (decl != .collection) {
+                continue;
+            }
+
+            try std.fmt.format(writer, "    {s} = \"{s}\",\n", .{ try toCamelCase(&buf, decl.collection.name.text), decl.collection.name });
+        }
+
+        try std.fmt.format(writer, "}}\n\n", .{});
     }
 }

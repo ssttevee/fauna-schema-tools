@@ -1,25 +1,31 @@
 {
-  "name": "@insights-gaming/rollup-plugin-fauna",
-  "version": "1.0.0",
+  "name": "fauna-schema-tools",
+  "version": "0.0.1",
   "license": "MIT",
   "type": "module",
-  "main": "dist/index.mjs",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "dist/lib.cjs",
+  "module": "dist/lib.mjs",
+  "types": "dist/lib.d.ts",
+  "bin": "dist/main.cjs",
   "scripts": {
-    "prepack": "npm run build-wasm && npm run build",
-    "build-wasm": "zig build -Doptimize=ReleaseSmall -Dtarget=wasm32-wasi && zbind dist/root.wasm src/zig.ts",
-    "build": "rollup -c"
+    "prepack": "npx patch-package && npm run build",
+    "build:wasm": "zig build -freference-trace -Doptimize=ReleaseSmall -Dtarget=wasm32-wasi && zbind dist/root.wasm src/zig.ts",
+    "build:js": "rollup -c",
+    "build": "npm run build:wasm && npm run build:js"
   },
   "dependencies": {
     "@rollup/pluginutils": "^5.1.0",
     "chokidar": "^3.6.0",
-    "estree-walker": "^3.0.3",
-    "magic-string": "^0.30.11",
+    "cmd-ts": "^0.13.0",
+    "jennifer-js": "^1.0.3",
+    "source-map": "^0.7.4",
     "zbind": "^0.0.11"
   },
   "devDependencies": {
-    "@rollup/plugin-typescript": "^11.1.6",
+    "@biomejs/biome": "^1.9.4",
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/node": "^20.14.11",
     "patch-package": "^8.0.0",
     "rollup": "*",
@@ -29,8 +35,9 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/lib.mjs",
+      "require": "./dist/lib.cjs",
+      "types": "./dist/lib.d.ts"
     },
     "./wasm": {
       "import": "./dist/root.wasm",
@@ -38,7 +45,7 @@
     },
     "./wasm-embedded": {
       "import": "./dist/root.wasm.mjs",
-      "require": "./dist/root.wasm.mjs"
+      "require": "./dist/root.wasm.cjs"
     }
   },
   "files": [

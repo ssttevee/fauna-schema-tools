@@ -37,9 +37,20 @@ pub fn mergeSchemas(allocator: std.mem.Allocator, trees: []const fauna.SchemaTre
         }
     }
 
+    var extras_out = std.ArrayList(fauna.SharedPtr([]const u8)).init(allocator);
+    defer extras_out.deinit();
+
+    for (trees) |tree| {
+        if (tree.extras) |extras| {
+            try extras_out.appendSlice(extras);
+            tree.allocator.free(extras);
+        }
+    }
+
     return .{
         .allocator = allocator,
         .declarations = all_decls,
+        .extras = try extras_out.toOwnedSlice(),
     };
 }
 
@@ -78,12 +89,12 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
         switch (decl) {
             .role => |role| {
                 // use the ptrs from the tree because the tree will outlive the hashmap
-                const result = try roles.getOrPut(role.name);
+                const result = try roles.getOrPut(role.name.text);
                 if (!result.found_existing) {
-                    result.key_ptr.* = role.name;
+                    result.key_ptr.* = role.name.text;
                     result.value_ptr.* = .{};
                 } else {
-                    tree.allocator.free(role.name);
+                    tree.allocator.free(role.name.text);
                 }
 
                 if (role.members) |members| {
@@ -102,7 +113,7 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
     for (roles.keys(), roles.values()) |role_name, *members| {
         decls.appendAssumeCapacity(.{
             .role = .{
-                .name = role_name,
+                .name = .{ .text = role_name },
                 .members = try members.toOwnedSlice(tree.allocator),
             },
         });

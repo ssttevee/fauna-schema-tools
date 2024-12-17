@@ -1,6 +1,8 @@
 import typescript from "@rollup/plugin-typescript";
 import dts from "rollup-plugin-dts";
 import { rollupPluginFileUint8Array } from "rollup-plugin-uint8-array";
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
 
 /**
  * @type {import('rollup').RollupOptions[]}
@@ -8,36 +10,56 @@ import { rollupPluginFileUint8Array } from "rollup-plugin-uint8-array";
 export default [
   {
     input: "dist/root.wasm",
-    output: {
-      file: "dist/root.wasm.mjs",
-      format: "esm",
-    },
+    output: [
+      {
+        file: "dist/root.wasm.mjs",
+        format: "esm",
+      },
+      {
+        file: "dist/root.wasm.cjs",
+        format: "cjs",
+      },
+    ],
     plugins: [rollupPluginFileUint8Array({ include: ["dist/root.wasm"] })],
   },
   {
-    input: "src/index.ts",
-    output: {
-      file: "dist/index.mjs",
-      format: "esm",
-    },
-    external: [
-      "fs/promises",
-      "zbind",
-      "chokidar",
-      "@rollup/pluginutils",
-      "magic-string",
-      "estree-walker",
-      "../dist/root.wasm.mjs",
+    input: ["src/lib.ts", "src/main.ts"],
+    output: [
+      {
+        dir: "dist",
+        format: "esm",
+        sourcemap: true,
+        entryFileNames: "[name].mjs",
+      },
+      {
+        dir: "dist",
+        format: "cjs",
+        sourcemap: true,
+        entryFileNames: "[name].cjs",
+      },
     ],
-    plugins: [typescript()],
+    external: ["node:fs/promises", "node:path", "chokidar"],
+    plugins: [
+      typescript(),
+      resolve(),
+      commonjs(),
+      {
+        renderChunk(code, chunk) {
+          if (!chunk.name.startsWith("main")) {
+            return null;
+          }
+
+          return `#!/usr/bin/env node\n\n${code}`;
+        },
+      },
+    ],
   },
   {
-    input: "src/index.ts",
+    input: "src/lib.ts",
     output: {
-      file: "dist/index.d.ts",
+      file: "dist/lib.d.ts",
       format: "esm",
     },
-    external: ["fs", "zbind", "chokidar", "../dist/root.wasm.mjs"],
     plugins: [dts()],
   },
 ];
