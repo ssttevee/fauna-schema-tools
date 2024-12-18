@@ -160,8 +160,6 @@ async function pullRevisionsAndRoles(
     throw new Error(files.error.message);
   }
 
-  console.log(files);
-
   await fs.rm(destdir, { force: true, recursive: true });
 
   const revisions = await Promise.all(
@@ -310,29 +308,33 @@ export async function pushSchema(
     throw new Error("Validation failed");
   }
 
-  console.log(`validation took ${Date.now() - validationStart}ms`);
+  console.log(`schema validation took ${Date.now() - validationStart}ms`);
 
-  console.log(validation.diff);
+  if (validation.diff) {
+    console.log(validation.diff);
 
-  const updateStart = Date.now();
-  const updateResponse = await fetch(
-    new URL(`/schema/1/update?version=${validation.version}`, endpoint),
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}` },
-      body,
-    },
-  );
+    const updateStart = Date.now();
+    const updateResponse = await fetch(
+      new URL(`/schema/1/update?version=${validation.version}`, endpoint),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+        body,
+      },
+    );
 
-  const json = await updateResponse.json();
-  if (json.error) {
-    console.error(fixErrorReferences(sourcemaps, json.error.message));
-    throw new Error("Update failed");
+    const json = await updateResponse.json();
+    if (json.error) {
+      console.error(fixErrorReferences(sourcemaps, json.error.message));
+      throw new Error("Update failed");
+    }
+
+    console.log(`update took ${Date.now() - updateStart}ms`);
+
+    console.log(json);
+  } else {
+    console.log("no schema changes found, skipping update");
   }
-
-  console.log(`update took ${Date.now() - updateStart}ms`);
-
-  console.log(json);
 
   await fs.rm(tempdir, { recursive: true, force: true });
 }

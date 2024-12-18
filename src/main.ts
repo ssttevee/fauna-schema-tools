@@ -153,25 +153,16 @@ async function writeAndPush(
   try {
     await Promise.all([
       output?.dtspath &&
-        time(
-          `wrote ${output.dtspath}`,
-          writeIfChanged,
-          output.dtspath,
-          schema.getTypescriptDefinitions(),
+        time(`writing ${output.dtspath}`, () =>
+          writeIfChanged(output.dtspath, schema.getTypescriptDefinitions()),
         ),
       output?.fnspath &&
-        time(
-          `wrote ${output.fnspath}`,
-          writeIfChanged,
-          output.fnspath,
-          generateFnsMapFile(names),
+        time(`writing ${output.fnspath}`, () =>
+          writeIfChanged(output.fnspath, generateFnsMapFile(names)),
         ),
       output?.schema?.path &&
-        time(
-          `wrote ${output.schema.path}`,
-          writeIfChanged,
-          output.schema.path,
-          schema.toString(),
+        time(`writing ${output.schema.path}`, () =>
+          writeIfChanged(output.schema.path as string, schema.toString()),
         ),
       output?.schema?.push && pushSchema(schema, output.schema.push),
     ]);
@@ -206,7 +197,7 @@ async function build(
 
   const start = Date.now();
   const mergedSchema = mergeSchemas(schemas.map((s) => s.tree));
-  console.log(`merged schema in ${Date.now() - start}ms`);
+  console.log(`merging schema took ${Date.now() - start}ms`);
 
   await writeAndPush(mergedSchema, output);
 }
