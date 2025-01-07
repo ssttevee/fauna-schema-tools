@@ -41,10 +41,14 @@ export default [
     external: [
       "node:fs/promises",
       "node:path",
+      "node:url",
       "chokidar",
       "source-map",
       "jennifer-js",
       "cmd-ts",
+      "readdirp",
+      "glob-parent",
+      "anymatch",
     ],
     plugins: [
       typescript(),

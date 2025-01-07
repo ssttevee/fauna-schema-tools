@@ -5,6 +5,7 @@ import {
   writeIfChanged,
   pushSchema,
   type PushSchemaOptions,
+  loadSchemas,
 } from "./lib";
 import * as fs from "node:fs/promises";
 import * as chokidar from "chokidar";
@@ -175,19 +176,7 @@ async function build(
   schemapaths: string | string[],
   output?: OutputOptions,
 ): Promise<void> {
-  const schemas = Object.values(
-    await new Promise((resolve) => {
-      const w = startWatcher(async function (schemas) {
-        this.close();
-        resolve(schemas);
-      }, schemapaths);
-      sleep(500).then(() => {
-        resolve({});
-        w.close();
-      });
-    }),
-  );
-
+  const schemas = await loadSchemas(schemapaths);
   if (schemas.length === 0) {
     console.log("no schemas found");
     return;
@@ -196,10 +185,22 @@ async function build(
   console.log(`found ${schemas.length} schema files`);
 
   const start = Date.now();
-  const mergedSchema = mergeSchemas(schemas.map((s) => s.tree));
-  console.log(`merging schema took ${Date.now() - start}ms`);
+  try {
+    const mergedSchema = mergeSchemas(schemas);
+    console.log(`merging schema took ${Date.now() - start}ms`);
 
-  await writeAndPush(mergedSchema, output);
+    try {
+      await writeAndPush(mergedSchema, output);
+    } finally {
+      for (const schema of schemas) {
+        schema.free();
+      }
+    }
+  } finally {
+    for (const schema of schemas) {
+      schema.free();
+    }
+  }
 }
 
 function watch(

@@ -2,6 +2,9 @@ import * as fs from "node:fs/promises";
 import { DeclarationType, Schema } from "./schema";
 import { SourceMapConsumer } from "source-map";
 import * as path from "node:path";
+import * as readdir from "readdirp";
+import globParent from "glob-parent";
+import anymatch from "anymatch";
 
 export { init, Schema } from "./schema";
 
@@ -371,4 +374,53 @@ export function mergeSchemas(
   merged.sort();
 
   return [merged, mangledNames];
+}
+
+export async function loadSchemas(
+  schemapaths: string | string[],
+): Promise<Schema[]> {
+  const matches = anymatch(schemapaths);
+  return await Promise.all(
+    (
+      await Promise.all(
+        Array.from(
+          new Set(
+            (Array.isArray(schemapaths) ? schemapaths : [schemapaths]).map(
+              (p) => globParent(p),
+            ),
+          ),
+          async (p) =>
+            (await readdir.promise(p)).map((entry) => path.join(p, entry.path)),
+        ),
+      )
+    )
+      .flat()
+      .filter((p) => matches(p))
+      .map(async (p) => Schema.parse(await fs.readFile(p, "utf8"), p)),
+  );
+}
+
+export async function pushMergedSchemas(
+  schemapaths: string | string[],
+  options: PushSchemaOptions,
+): Promise<number> {
+  const schemas = await loadSchemas(schemapaths);
+  if (schemas.length === 0) {
+    return 0;
+  }
+
+  try {
+    const [mergedSchema] = mergeSchemas(schemas);
+    try {
+      await pushSchema(mergedSchema, options);
+    } finally {
+      mergedSchema.free();
+    }
+  } finally {
+    for (const schema of schemas) {
+      schema.free();
+    }
+  }
+
+  return schemas.length;
 }
