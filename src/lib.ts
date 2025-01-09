@@ -2,7 +2,6 @@ import * as fs from "node:fs/promises";
 import { DeclarationType, Schema } from "./schema";
 import { SourceMapConsumer } from "source-map";
 import * as path from "node:path";
-import * as readdir from "readdirp";
 import globParent from "glob-parent";
 import anymatch from "anymatch";
 
@@ -11,7 +10,12 @@ export { init, Schema } from "./schema";
 export type PushSchemaOptions = {
   retainRevisions?: number;
   tempdir?: string;
-} & ({ key: string } | { endpoint: string; key?: string });
+} & (
+  | { key: string }
+  | { secret: string }
+  | { endpoint: string; key?: string }
+  | { endpoint: string; secret?: string }
+);
 
 const sourceMapComment =
   "//# sourceMappingURL=data:application/json;charset=utf-8;base64,";
@@ -209,83 +213,129 @@ async function appendSchemaToBody(
   sourcemaps.set(name, smc);
 }
 
+export class PushSchemaError extends Error {
+  constructor(
+    message: string,
+    private readonly _details: string,
+    private readonly sourcemaps: Map<string, SourceMapConsumer>,
+  ) {
+    super(message);
+  }
+
+  public get details(): string {
+    return fixErrorReferences(this.sourcemaps, this._details);
+  }
+}
+
+export class PushSchemaValidationError extends PushSchemaError {
+  constructor(details: string, sourcemaps: Map<string, SourceMapConsumer>) {
+    super("Validation failed", details, sourcemaps);
+  }
+}
+
+export class PushSchemaUpdateError extends PushSchemaError {
+  constructor(details: string, sourcemaps: Map<string, SourceMapConsumer>) {
+    super("Update failed", details, sourcemaps);
+  }
+}
+
+export interface PushSchemaResult {
+  validationMs: number;
+  diff?: string;
+  updateMs?: number;
+}
+
 export async function pushSchema(
   schema: Schema,
   options: PushSchemaOptions,
-): Promise<void> {
+): Promise<PushSchemaResult> {
   const tempdir = options.tempdir || ".fst";
   const endpoint =
     (options as { endpoint?: string }).endpoint || "https://db.fauna.com";
-  const key = options.key || "";
-  const retain = options.retainRevisions || 10;
+  const key =
+    (options as { key?: string }).key ||
+    (options as { secret?: string }).secret ||
+    "";
+  const retain = options.retainRevisions ?? 10;
 
   await fs.rm(tempdir, { recursive: true, force: true });
-
-  using saved = await pullRevisionsAndRoles(
-    endpoint,
-    key,
-    path.join(tempdir, "pulled"),
-  );
-
-  using accessProviders = schema.filterByType(DeclarationType.ACCESS_PROVIDER);
-  using collections = schema.filterByType(DeclarationType.COLLECTION);
-
-  // remove all current functions from previous revisions
-  const functions = schema.filterByType(DeclarationType.FUNCTION);
-  for (const { type, name } of functions.declarations) {
-    if (type !== DeclarationType.FUNCTION) {
-      continue;
-    }
-
-    for (const revision of saved.revisions) {
-      revision.removeDeclaration(type, name);
-    }
-
-    saved.roles?.removeRolesResource(name);
-  }
-
-  using roles = saved.roles
-    ? Schema.merge([
-        saved.roles.clone(),
-        schema.filterByType(DeclarationType.ROLE),
-      ]).mergeRoles()
-    : schema.filterByType(DeclarationType.ROLE);
-
-  // add new functions to the latest revision and remove the last one if it exceeds the limit
-  saved.revisions.unshift(functions);
-  while (saved.revisions.length > retain) {
-    using culledFunctions = saved.revisions.pop();
-    for (const { type, name } of culledFunctions.declarations) {
-      if (type !== DeclarationType.FUNCTION) {
-        continue;
-      }
-
-      roles.removeRolesResource(name);
-    }
-  }
 
   const body = new FormData();
   const sourcemaps = new Map<string, SourceMapConsumer>();
 
-  if (accessProviders.length) {
-    await appendSchemaToBody(
-      body,
-      sourcemaps,
-      accessProviders,
-      "access_providers.fsl",
-    );
-  }
-  if (collections.length) {
-    await appendSchemaToBody(body, sourcemaps, collections, "collections.fsl");
-  }
-  if (roles.length) {
-    await appendSchemaToBody(body, sourcemaps, roles, "roles.fsl");
-  }
+  using accessProviders = schema.filterByType(DeclarationType.ACCESS_PROVIDER);
+  using collections = schema.filterByType(DeclarationType.COLLECTION);
 
-  for (const [i, revision] of saved.revisions
-    .filter((schema) => schema.length)
-    .entries()) {
-    appendSchemaToBody(body, sourcemaps, revision, `functions_${i}.fsl`);
+  using roles = schema.filterByType(DeclarationType.ROLE);
+  const revisions: Schema[] = [];
+  try {
+    if (retain <= 0) {
+      const saved = await pullRevisionsAndRoles(
+        endpoint,
+        key,
+        path.join(tempdir, "pulled"),
+      );
+
+      revisions.push(...saved.revisions);
+
+      if (saved.roles) {
+        roles.merge(saved.roles).mergeRoles();
+      }
+
+      // remove all current functions from previous revisions
+      const functions = schema.filterByType(DeclarationType.FUNCTION);
+      for (const { type, name } of functions.declarations) {
+        for (const revision of saved.revisions) {
+          revision.removeDeclaration(type, name);
+        }
+
+        saved.roles?.removeRolesResource(name);
+      }
+
+      // add new functions to the latest revision and remove the last one if it exceeds the limit
+      revisions.unshift(functions);
+
+      while (revisions.length > retain) {
+        using culledFunctions = revisions.pop();
+        for (const { type, name } of culledFunctions.declarations) {
+          if (type !== DeclarationType.FUNCTION) {
+            continue;
+          }
+
+          roles.removeRolesResource(name);
+        }
+      }
+    }
+
+    if (accessProviders.length) {
+      await appendSchemaToBody(
+        body,
+        sourcemaps,
+        accessProviders,
+        "access_providers.fsl",
+      );
+    }
+    if (collections.length) {
+      await appendSchemaToBody(
+        body,
+        sourcemaps,
+        collections,
+        "collections.fsl",
+      );
+    }
+    if (roles.length) {
+      await appendSchemaToBody(body, sourcemaps, roles, "roles.fsl");
+    }
+
+    for (const [i, revision] of revisions
+      .filter((schema) => schema.length)
+      .entries()) {
+      appendSchemaToBody(body, sourcemaps, revision, `functions_${i}.fsl`);
+    }
+  } finally {
+    for (const revision of revisions) {
+      revision.free();
+    }
   }
 
   for (const [filename, content] of body.entries()) {
@@ -307,15 +357,15 @@ export async function pushSchema(
 
   const validation = await validationResponse.json();
   if (validation.error) {
-    console.error(fixErrorReferences(sourcemaps, validation.error.message));
-    throw new Error("Validation failed");
+    throw new PushSchemaValidationError(validation.error.message, sourcemaps);
   }
 
-  console.log(`schema validation took ${Date.now() - validationStart}ms`);
+  const result: PushSchemaResult = {
+    validationMs: Date.now() - validationStart,
+    diff: validation.diff,
+  };
 
   if (validation.diff) {
-    console.log(validation.diff);
-
     const updateStart = Date.now();
     const updateResponse = await fetch(
       new URL(`/schema/1/update?version=${validation.version}`, endpoint),
@@ -328,18 +378,15 @@ export async function pushSchema(
 
     const json = await updateResponse.json();
     if (json.error) {
-      console.error(fixErrorReferences(sourcemaps, json.error.message));
-      throw new Error("Update failed");
+      throw new PushSchemaUpdateError(json.error.message, sourcemaps);
     }
 
-    console.log(`update took ${Date.now() - updateStart}ms`);
-
-    console.log(json);
-  } else {
-    console.log("no schema changes found, skipping update");
+    result.updateMs = Date.now() - updateStart;
   }
 
   await fs.rm(tempdir, { recursive: true, force: true });
+
+  return result;
 }
 
 export async function writeIfChanged(
@@ -390,7 +437,9 @@ export async function loadSchemas(
             ),
           ),
           async (p) =>
-            (await readdir.promise(p)).map((entry) => path.join(p, entry.path)),
+            (await fs.readdir(p, { withFileTypes: true, recursive: true })).map(
+              (entry) => path.join(entry.parentPath, entry.name),
+            ),
         ),
       )
     )

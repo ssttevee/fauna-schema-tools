@@ -1,8 +1,17 @@
 import type { OpaqueStruct } from "zbind";
 import * as zig from "./zig";
 
+let initialized = false;
+
 export function init(source?: BufferSource | string) {
   zig.$init(source);
+  initialized = true;
+}
+
+function assertInitialized(): void {
+  if (!initialized) {
+    throw new Error("WASM was not initialized");
+  }
 }
 
 export enum DeclarationType {
@@ -28,20 +37,12 @@ export class Schema {
       return Schema.parse("");
     }
 
-    const schema = schemas[0];
-    for (const other of schemas.slice(1)) {
-      const result = zig.mergeSchemas(schema.#data, other.#data);
-      if (!result) {
-        throw new Error("Failed to merge schemas");
-      }
-
-      schema.#data = result;
-    }
-
-    return schema;
+    return schemas[0].merge(schemas.slice(1));
   }
 
   public static parse(strSchema: string, filename?: string): Schema {
+    assertInitialized();
+
     const tree = zig.parseSchemaTree(strSchema, filename || null);
     if (!tree) {
       throw new Error("Failed to parse schema");
@@ -73,6 +74,19 @@ export class Schema {
     } finally {
       zig.freeBytes(json);
     }
+  }
+
+  public merge(schemas: Schema | Schema[]): this {
+    for (const other of Array.isArray(schemas) ? schemas : [schemas]) {
+      const tree = zig.mergeSchemas(this.#data, other.#data);
+      if (!tree) {
+        throw new Error("Failed to merge schemas");
+      }
+
+      this.#data = tree;
+    }
+
+    return this;
   }
 
   public mergeRoles(): this {

@@ -6,6 +6,7 @@ import {
   pushSchema,
   type PushSchemaOptions,
   loadSchemas,
+  PushSchemaError,
 } from "./lib";
 import * as fs from "node:fs/promises";
 import * as chokidar from "chokidar";
@@ -147,6 +148,30 @@ async function time<F extends (...args: unknown[]) => Promise<unknown>>(
   return result as Awaited<ReturnType<F>>;
 }
 
+async function pushAndReport(
+  schema: Schema,
+  options?: PushSchemaOptions,
+): Promise<void> {
+  try {
+    const result = await pushSchema(schema, options);
+    console.log(`validation took ${result.validationMs}ms`);
+    if (result.diff) {
+      console.log(result.diff);
+    }
+    if (typeof result.updateMs === "number") {
+      console.log(`update took ${result.updateMs}ms`);
+    } else {
+      console.log("no schema changes found, skipped update");
+    }
+  } catch (err) {
+    if (err instanceof PushSchemaError) {
+      console.log(err.details);
+    }
+
+    throw err;
+  }
+}
+
 async function writeAndPush(
   [schema, names]: ReturnType<typeof mergeSchemas>,
   output?: OutputOptions,
@@ -165,7 +190,7 @@ async function writeAndPush(
         time(`writing ${output.schema.path}`, () =>
           writeIfChanged(output.schema.path as string, schema.toString()),
         ),
-      output?.schema?.push && pushSchema(schema, output.schema.push),
+      output?.schema?.push && pushAndReport(schema, output.schema.push),
     ]);
   } finally {
     schema.free();
