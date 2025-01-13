@@ -269,7 +269,7 @@ export async function pushSchema(
   using roles = schema.filterByType(DeclarationType.ROLE);
   const revisions: Schema[] = [];
   try {
-    if (retain <= 0) {
+    if (retain > 0) {
       const saved = await pullRevisionsAndRoles(
         endpoint,
         key,
@@ -305,6 +305,8 @@ export async function pushSchema(
           roles.removeRolesResource(name);
         }
       }
+    } else {
+      revisions.unshift(schema.filterByType(DeclarationType.FUNCTION));
     }
 
     if (accessProviders.length) {
