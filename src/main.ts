@@ -121,9 +121,11 @@ function startWatcher(
 function generateFnsMapFile(name: Record<string, string>): string {
   return jen
     .statements(
-      ...Object.entries(name).map(([name, mangled]) =>
-        jen.export.const.id(name).op("=").lit(mangled),
-      ),
+      ...Object.entries(name)
+        .toSorted(([a], [b]) => a.localeCompare(b))
+        .map(([name, mangled]) =>
+          jen.export.const.id(name).op("=").lit(mangled),
+        ),
     )
     .toString();
 }
