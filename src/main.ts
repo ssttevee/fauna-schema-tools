@@ -121,10 +121,15 @@ function startWatcher(
 function generateFnsMapFile(name: Record<string, string>): string {
   return jen
     .statements(
+      jen.import.obj(jen.id("fql")).from.lit("fauna"),
       ...Object.entries(name)
         .toSorted(([a], [b]) => a.localeCompare(b))
         .map(([name, mangled]) =>
-          jen.export.const.id(name).op("=").lit(mangled),
+          jen.export.const
+            .id(name)
+            .op("=")
+            .id("fql")
+            .call(jen.arr(jen.lit(mangled))),
         ),
     )
     .toString();
