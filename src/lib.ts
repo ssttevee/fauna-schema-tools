@@ -458,27 +458,29 @@ export function mergeSchemas(
 
 export async function loadSchemas(
   schemapaths: string | string[],
-): Promise<Schema[]> {
+): Promise<Record<string, Schema>> {
   const matches = anymatch(schemapaths);
-  return await Promise.all(
-    (
-      await Promise.all(
-        Array.from(
-          new Set(
-            (Array.isArray(schemapaths) ? schemapaths : [schemapaths]).map(
-              (p) => globParent(p),
+  return Object.fromEntries(
+    await Promise.all(
+      (
+        await Promise.all(
+          Array.from(
+            new Set(
+              (Array.isArray(schemapaths) ? schemapaths : [schemapaths]).map(
+                (p) => globParent(p),
+              ),
             ),
+            async (p) =>
+              (
+                await fs.readdir(p, { withFileTypes: true, recursive: true })
+              ).map((entry) => path.join(entry.parentPath, entry.name)),
           ),
-          async (p) =>
-            (await fs.readdir(p, { withFileTypes: true, recursive: true })).map(
-              (entry) => path.join(entry.parentPath, entry.name),
-            ),
-        ),
+        )
       )
-    )
-      .flat()
-      .filter((p) => matches(p))
-      .map(async (p) => Schema.parse(await fs.readFile(p, "utf8"), p)),
+        .flat()
+        .filter((p) => matches(p))
+        .map(async (p) => [p, Schema.parse(await fs.readFile(p, "utf8"), p)]),
+    ),
   );
 }
 
@@ -486,7 +488,7 @@ export async function pushMergedSchemas(
   schemapaths: string | string[],
   options: PushSchemaOptions,
 ): Promise<number> {
-  const schemas = await loadSchemas(schemapaths);
+  const schemas = Object.values(await loadSchemas(schemapaths));
   if (schemas.length === 0) {
     return 0;
   }

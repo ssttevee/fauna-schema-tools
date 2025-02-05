@@ -208,7 +208,7 @@ async function build(
   schemapaths: string | string[],
   output?: OutputOptions,
 ): Promise<void> {
-  const schemas = await loadSchemas(schemapaths);
+  const schemas = Object.values(await loadSchemas(schemapaths));
   if (schemas.length === 0) {
     console.log("no schemas found");
     return;
@@ -220,14 +220,7 @@ async function build(
   try {
     const mergedSchema = mergeSchemas(schemas);
     console.log(`merging schema took ${Date.now() - start}ms`);
-
-    try {
-      await writeAndPush(mergedSchema, output);
-    } finally {
-      for (const schema of schemas) {
-        schema.free();
-      }
-    }
+    await writeAndPush(mergedSchema, output);
   } finally {
     for (const schema of schemas) {
       schema.free();
@@ -246,6 +239,16 @@ function watch(
         output,
       ),
     schemapaths,
+  );
+}
+
+async function initWasm() {
+  init(
+    await fs.readFile(
+      typeof require !== "undefined"
+        ? require.resolve("fauna-schema-tools/wasm")
+        : import.meta.resolve("fauna-schema-tools/wasm"),
+    ),
   );
 }
 
@@ -314,7 +317,7 @@ const link = command({
       type: number,
     }),
   },
-  handler: (args) => {
+  handler: async (args) => {
     const output: OutputOptions = {
       schema: {},
     };
@@ -342,24 +345,59 @@ const link = command({
       output.schema.push = push;
     }
 
-    fs.readFile(
-      typeof require !== "undefined"
-        ? require.resolve("fauna-schema-tools/wasm")
-        : import.meta.resolve("fauna-schema-tools/wasm"),
-    ).then(async (w) => {
-      init(w);
+    await initWasm();
 
-      await (args.watch ? watch : build)(
-        [args.schemapath, ...args.schemapaths],
-        output,
+    await (args.watch ? watch : build)(
+      [args.schemapath, ...args.schemapaths],
+      output,
+    );
+  },
+});
+
+const format = command({
+  name: "format",
+  description: "Format a schema file",
+  args: {
+    schemapath: positional({
+      displayName: "schema path",
+      description: "Path to schema files (globs are supported)",
+      type: string,
+    }),
+    schemapaths: restPositionals({
+      displayName: "schema paths",
+      description: "Additional paths to schema files",
+      type: string,
+    }),
+    write: flag({
+      long: "write",
+      short: "w",
+      description: "Write changes to file",
+      type: boolean,
+    }),
+  },
+  handler: async (args) => {
+    await initWasm();
+
+    const schemas = await loadSchemas([args.schemapath, ...args.schemapaths]);
+    if (args.write) {
+      // write changes to file in parallel
+      await Promise.allSettled(
+        Object.entries(schemas).map(([path, schema]) =>
+          fs.writeFile(path, schema.toString()),
+        ),
       );
-    });
+    } else {
+      // write to stdout sequentially
+      for (const schema of Object.values(schemas)) {
+        process.stdout.write(schema.toString());
+      }
+    }
   },
 });
 
 const app = subcommands({
   name: "fauna-schema-tools",
-  cmds: { link },
+  cmds: { link, format },
 });
 
 run(app, process.argv.slice(2));

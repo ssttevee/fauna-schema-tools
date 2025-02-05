@@ -209,7 +209,13 @@ export class Schema {
     }
 
     try {
-      return str.toString();
+      return (
+        str
+          .toString()
+          .replace(/\n\n\n+/gm, "\n\n")
+          .replace(/\n}\n([a-z])/gm, "\n}\n\n$1")
+          .trim() + "\n"
+      );
     } finally {
       zig.freeBytes(str);
     }
