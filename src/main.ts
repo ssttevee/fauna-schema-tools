@@ -358,14 +358,9 @@ const format = command({
   name: "format",
   description: "Format a schema file",
   args: {
-    schemapath: positional({
-      displayName: "schema path",
-      description: "Path to schema files (globs are supported)",
-      type: string,
-    }),
     schemapaths: restPositionals({
       displayName: "schema paths",
-      description: "Additional paths to schema files",
+      description: "Paths to schema files (globs are supported)",
       type: string,
     }),
     write: flag({
@@ -378,7 +373,31 @@ const format = command({
   handler: async (args) => {
     await initWasm();
 
-    const schemas = await loadSchemas([args.schemapath, ...args.schemapaths]);
+    if (
+      !args.schemapaths.length ||
+      (args.schemapaths.length === 1 && args.schemapaths[0] === "-")
+    ) {
+      // read from stdin
+      const schema = Schema.parse(
+        await new Promise((resolve, reject) => {
+          const chunks: Buffer[] = [];
+          process.stdin.on("data", (chunk) => chunks.push(chunk));
+          process.stdin.on("end", () =>
+            resolve(Buffer.concat(chunks).toString("utf-8")),
+          );
+          process.stdin.on("error", reject);
+        }),
+      );
+
+      try {
+        process.stdout.write(schema.toString());
+      } finally {
+        schema.free();
+      }
+      return;
+    }
+
+    const schemas = await loadSchemas(args.schemapaths);
     if (args.write) {
       // write changes to file in parallel
       await Promise.allSettled(
