@@ -4,3 +4,4 @@
 /zig-cache
 /zig-out
 /src/zig.ts
+*.tgz
