@@ -276,20 +276,51 @@ export async function pushSchema(
         path.join(tempdir, "pulled"),
       );
 
-      revisions.push(...saved.revisions);
-
-      if (saved.roles) {
-        roles.merge(saved.roles).mergeRoles();
-      }
+      const functions = schema.filterByType(DeclarationType.FUNCTION);
 
       // remove all current functions from previous revisions
-      const functions = schema.filterByType(DeclarationType.FUNCTION);
       for (const { type, name } of functions.declarations) {
+        if (type !== DeclarationType.FUNCTION) {
+          throw new Error("unreachable");
+        }
+
         for (const revision of saved.revisions) {
           revision.removeDeclaration(type, name);
         }
+      }
 
-        saved.roles?.removeRolesResource(RoleMemberType.PRIVILEGES, name);
+      revisions.push(...saved.revisions);
+
+      if (saved.roles) {
+        // remove all references to resources other than retained functions
+        const retainedFunctionNames = new Set(
+          revisions.flatMap((s) =>
+            s.declarations
+              .filter((d) => d.type === DeclarationType.FUNCTION)
+              .map((d) => d.name),
+          ),
+        );
+
+        for (const decl of saved.roles.declarations) {
+          if (decl.type !== DeclarationType.ROLE) {
+            console.warn(
+              `found ${decl.type} in pulled roles.fsl? removing it just in case...`,
+            );
+            saved.roles.removeDeclaration(decl.type, decl.name);
+            continue;
+          }
+
+          for (const resource of decl.resources) {
+            if (
+              resource.type !== RoleMemberType.PRIVILEGES ||
+              !retainedFunctionNames.has(resource.name)
+            ) {
+              saved.roles.removeRolesResource(resource.type, resource.name);
+            }
+          }
+        }
+
+        roles.merge(saved.roles).mergeRoles();
       }
 
       // add new functions to the latest revision and remove the last one if it exceeds the limit
