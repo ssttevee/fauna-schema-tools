@@ -21,6 +21,11 @@ export enum DeclarationType {
   ROLE = "role",
 }
 
+export enum RoleMemberType {
+  PRIVILEGES = "privileges",
+  MEMBERSHIP = "membership",
+}
+
 export class Schema {
   #data: OpaqueStruct;
 
@@ -142,15 +147,32 @@ export class Schema {
   /**
    * Removes references to a resource from all role declarations.
    */
-  public removeRolesResource(resourceName: string): void {
-    zig.removeSchemaTreeRolesResource(this.#data, resourceName);
+  public removeRolesResource(
+    memberType: RoleMemberType,
+    resourceName: string,
+  ): void {
+    if (
+      !zig.removeSchemaTreeRolesResource(
+        this.#data,
+        memberType as string,
+        resourceName,
+      )
+    ) {
+      throw new Error("Failed to remove resource from roles");
+    }
   }
 
-  public get declarations(): Array<{
-    type: DeclarationType;
-    name: string;
-    resources?: string[];
-  }> {
+  public get declarations(): Array<
+    | {
+        type: Exclude<DeclarationType, DeclarationType.ROLE>;
+        name: string;
+      }
+    | {
+        type: DeclarationType.ROLE;
+        name: string;
+        resources: Array<{ type: RoleMemberType; name: string }>;
+      }
+  > {
     const json = zig.listSchemaTreeDeclarations(this.#data);
     if (!json) {
       throw new Error("Failed to list declarations");

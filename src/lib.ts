@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { DeclarationType, Schema } from "./schema";
+import { DeclarationType, RoleMemberType, Schema } from "./schema";
 import { SourceMapConsumer } from "source-map";
 import * as path from "node:path";
 import globParent from "glob-parent";
@@ -289,7 +289,7 @@ export async function pushSchema(
           revision.removeDeclaration(type, name);
         }
 
-        saved.roles?.removeRolesResource(name);
+        saved.roles?.removeRolesResource(RoleMemberType.PRIVILEGES, name);
       }
 
       // add new functions to the latest revision and remove the last one if it exceeds the limit
@@ -302,7 +302,7 @@ export async function pushSchema(
             continue;
           }
 
-          roles.removeRolesResource(name);
+          roles.removeRolesResource(RoleMemberType.PRIVILEGES, name);
         }
       }
     } else {

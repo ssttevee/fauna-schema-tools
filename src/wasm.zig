@@ -246,9 +246,13 @@ pub fn removeSchemaTreeDeclaration(tree: fauna.SchemaTree, decl_type: []const u8
 }
 
 /// Removes references to a resource from all role declarations.
-pub fn removeSchemaTreeRolesResource(tree: fauna.SchemaTree, resource_name: []const u8) void {
-    const decls = tree.declarations orelse return;
-    for (decls) |*decl| {
+pub fn removeSchemaTreeRolesResource(tree: fauna.SchemaTree, member_type: []const u8, resource_name: []const u8) bool {
+    const member_type_tag = std.meta.stringToEnum(std.meta.Tag(fauna.SchemaDefinition.Role.Member), member_type) orelse {
+        std.debug.print("Error: {any}\n", .{error.BadMemberType});
+        return false;
+    };
+
+    for (tree.declarations orelse return true) |*decl| {
         if (decl.* == .role) {
             var members: []fauna.SchemaDefinition.Role.Member = @constCast(decl.role.members orelse continue);
             defer decl.role.members = members;
@@ -256,12 +260,14 @@ pub fn removeSchemaTreeRolesResource(tree: fauna.SchemaTree, resource_name: []co
             var i: usize = 0;
             while (i < members.len) {
                 const member = members[i];
-                if (member != .privileges) {
-                    i += 1;
-                    continue;
-                }
-
-                if (std.mem.eql(u8, member.privileges.resource.text, resource_name)) {
+                if (member == member_type_tag and std.mem.eql(
+                    u8,
+                    resource_name,
+                    switch (member) {
+                        .privileges => |p| p.resource.text,
+                        .membership => |m| m.collection.text,
+                    },
+                )) {
                     members[i].deinit(tree.allocator);
                     std.mem.copyForwards(fauna.SchemaDefinition.Role.Member, members[i..], members[i + 1 ..]);
 
@@ -272,6 +278,8 @@ pub fn removeSchemaTreeRolesResource(tree: fauna.SchemaTree, resource_name: []co
             }
         }
     }
+
+    return true;
 }
 
 fn listSchemaTreeDeclarationsInternal(allocator: std.mem.Allocator, tree: fauna.SchemaTree) ![]const u8 {
@@ -293,11 +301,15 @@ fn listSchemaTreeDeclarationsInternal(allocator: std.mem.Allocator, tree: fauna.
                 try stream.beginArray();
                 if (decl.role.members) |members| {
                     for (members) |member| {
-                        if (member != .privileges) {
-                            continue;
-                        }
-
-                        try stream.write(member.privileges.resource.text);
+                        try stream.beginObject();
+                        try stream.objectField("type");
+                        try stream.write(@tagName(member));
+                        try stream.objectField("name");
+                        try stream.write(switch (member) {
+                            .privileges => |p| p.resource.text,
+                            .membership => |p| p.collection.text,
+                        });
+                        try stream.endObject();
                     }
                 }
 
