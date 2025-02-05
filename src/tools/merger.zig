@@ -61,19 +61,32 @@ fn codeEquals(a_node: anytype, b_node: anytype) bool {
         return std.mem.eql(u8, a_node, b_node);
     }
 
+    if (T == fauna.Position or T == fauna.SourceLocation) {
+        // position and source location is not part of code so it can be ignored for this equality test
+        return true;
+    }
+
     switch (@typeInfo(T)) {
-        .Enum => {
+        inline .Int, .Enum, .Bool => {
             return a_node == b_node;
         },
         .Optional => {
-            return codeEquals(a_node.?, b_node.?);
+            if (a_node) |a| {
+                if (b_node) |b| {
+                    return codeEquals(a, b);
+                }
+
+                return false;
+            }
+
+            if (b_node) |_| {
+                return false;
+            }
+
+            return true;
         },
         .Struct => |struct_info| {
             inline for (struct_info.fields) |field_info| {
-                if (field_info.type == ?fauna.Position or field_info.type == ?[]const fauna.Position or field_info.type == ?fauna.SourceLocation) {
-                    continue;
-                }
-
                 if (!codeEquals(@field(a_node, field_info.name), @field(b_node, field_info.name))) {
                     return false;
                 }
@@ -163,7 +176,8 @@ fn combineRolePrivileges(allocator: std.mem.Allocator, a: *const fauna.SchemaDef
                 if (!res.found_existing) {
                     res.key_ptr.* = action.action;
                     res.value_ptr.* = try action.dupe(allocator);
-                } else if (!codeEquals(res.value_ptr, action)) {
+                } else if (!codeEquals(res.value_ptr.*, action.*)) {
+                    std.debug.print("duplicate action {s} for resource {s}\n", .{ @tagName(action.action), a.resource.text });
                     return error.DuplicateAction;
                 }
             }
@@ -207,8 +221,11 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
     var old_members_slices = try std.ArrayList([]const fauna.SchemaDefinition.Role.Member).initCapacity(allocator, decls.capacity);
     defer old_members_slices.deinit();
 
-    var old_members = try std.ArrayList(fauna.SchemaDefinition.Role.Member).initCapacity(allocator, decls.capacity);
+    var old_members = std.ArrayList(fauna.SchemaDefinition.Role.Member).init(allocator);
     defer old_members.deinit();
+
+    var old_names = std.ArrayList([]const u8).init(allocator);
+    defer old_names.deinit();
 
     for (old_decls) |decl| {
         switch (decl) {
@@ -219,55 +236,82 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
                     result.key_ptr.* = role.name.text;
                     result.value_ptr.* = .{};
                 } else {
-                    tree.allocator.free(role.name.text);
+                    try old_names.append(role.name.text);
                 }
 
-                const role_members = result.value_ptr;
-                if (role.members) |members| {
-                    try role_members.ensureUnusedCapacity(tree.allocator, members.len);
+                if (role.members) |new_members| {
+                    const existing_members = result.value_ptr;
+                    try existing_members.ensureUnusedCapacity(tree.allocator, new_members.len);
 
                     // build a hashmap of privileges for deduplication (cannot be cached because references become invalid when arraylist is resized)
                     var privileges_map = std.StringHashMap(*fauna.SchemaDefinition.Role.Member.Privileges).init(tree.allocator);
-                    try privileges_map.ensureTotalCapacity(role_members.capacity);
+                    try privileges_map.ensureTotalCapacity(@intCast(existing_members.capacity));
                     defer privileges_map.deinit();
 
-                    // populate the map with the existing privileges
-                    for (role_members.items) |*member| {
-                        switch (member.*) {
+                    var membership_map = std.StringHashMap(*fauna.SchemaDefinition.Role.Member.Membership).init(tree.allocator);
+                    try membership_map.ensureTotalCapacity(@intCast(existing_members.capacity));
+                    defer membership_map.deinit();
+
+                    // populate the map with the existing privileges and memberships
+                    for (existing_members.items) |*existing_member| {
+                        switch (existing_member.*) {
                             .privileges => |*privileges| {
                                 const res = privileges_map.getOrPutAssumeCapacity(privileges.resource.text);
                                 std.debug.assert(!res.found_existing);
                                 res.key_ptr.* = privileges.resource.text;
                                 res.value_ptr.* = privileges;
                             },
-                            else => {
-                                // do nothing
+                            .membership => |*membership| {
+                                const res = membership_map.getOrPutAssumeCapacity(membership.collection.text);
+                                std.debug.assert(!res.found_existing);
+                                res.key_ptr.* = membership.collection.text;
+                                res.value_ptr.* = membership;
                             },
                         }
                     }
 
-                    for (members) |member| {
-                        const member_ptr = role_members.addOneAssumeCapacity();
-                        member_ptr.* = member;
+                    // add the new members or merge with an existing one
+                    for (new_members) |new_member| {
+                        const member_ptr = existing_members.addOneAssumeCapacity();
+                        member_ptr.* = new_member;
 
-                        if (member_ptr.* == .privileges) {
-                            const res = privileges_map.getOrPutAssumeCapacity(member_ptr.privileges.resource.text);
-                            if (res.found_existing) {
-                                const combined_privilege = try combineRolePrivileges(tree.allocator, res.value_ptr.*, &member_ptr.privileges);
-                                try old_members.append(.{ .privileges = res.value_ptr.*.* });
-                                try old_members.append(.{ .privileges = member_ptr.privileges });
-                                res.value_ptr.*.* = combined_privilege;
+                        switch (member_ptr.*) {
+                            .privileges => |*privileges| {
+                                const res = privileges_map.getOrPutAssumeCapacity(privileges.resource.text);
+                                if (res.found_existing) {
+                                    const combined_privilege = try combineRolePrivileges(tree.allocator, res.value_ptr.*, privileges);
+                                    try old_members.append(.{ .privileges = res.value_ptr.*.* });
+                                    try old_members.append(.{ .privileges = privileges.* });
+                                    res.value_ptr.*.* = combined_privilege;
 
-                                role_members.items.len -= 1;
-                            } else {
-                                res.key_ptr.* = member_ptr.privileges.resource.text;
-                                res.value_ptr.* = &member_ptr.privileges;
-                            }
+                                    // delete the last item
+                                    existing_members.items.len -= 1;
+                                } else {
+                                    res.key_ptr.* = privileges.resource.text;
+                                    res.value_ptr.* = privileges;
+                                }
+                            },
+                            .membership => |*membership| {
+                                const res = membership_map.getOrPutAssumeCapacity(membership.collection.text);
+                                if (res.found_existing) {
+                                    if (!codeEquals(membership, res.value_ptr.*)) {
+                                        return error.DuplicateMembership;
+                                    }
+
+                                    try old_members.append(.{ .membership = membership.* });
+
+                                    // delete the last item
+                                    existing_members.items.len -= 1;
+                                } else {
+                                    res.key_ptr.* = membership.collection.text;
+                                    res.value_ptr.* = membership;
+                                }
+                            },
                         }
                     }
 
                     // keep this to free later
-                    old_members_slices.appendAssumeCapacity(members);
+                    old_members_slices.appendAssumeCapacity(new_members);
                 }
             },
             else => {
@@ -295,5 +339,9 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
 
     for (old_members.items) |member| {
         member.deinit(tree.allocator);
+    }
+
+    for (old_names.items) |name| {
+        tree.allocator.free(name);
     }
 }
