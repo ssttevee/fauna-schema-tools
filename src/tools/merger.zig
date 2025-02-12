@@ -174,7 +174,7 @@ fn combineRolePrivileges(allocator: std.mem.Allocator, a: *const fauna.SchemaDef
             for (actions) |*action| {
                 const res = action_map.getOrPutAssumeCapacity(action.action);
                 if (!res.found_existing) {
-                    res.key_ptr.* = action.action;
+                    errdefer _ = action_map.pop();
                     res.value_ptr.* = try action.dupe(allocator);
                 } else if (!codeEquals(res.value_ptr.*, action.*)) {
                     std.debug.print("duplicate action {s} for resource {s}\n", .{ @tagName(action.action), a.resource.text });
@@ -233,7 +233,6 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
                 // use the ptrs from the tree because the tree will outlive the hashmap
                 const result = try roles.getOrPut(role.name.text);
                 if (!result.found_existing) {
-                    result.key_ptr.* = role.name.text;
                     result.value_ptr.* = .{};
                 } else {
                     try old_names.append(role.name.text);
@@ -258,13 +257,11 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
                             .privileges => |*privileges| {
                                 const res = privileges_map.getOrPutAssumeCapacity(privileges.resource.text);
                                 std.debug.assert(!res.found_existing);
-                                res.key_ptr.* = privileges.resource.text;
                                 res.value_ptr.* = privileges;
                             },
                             .membership => |*membership| {
                                 const res = membership_map.getOrPutAssumeCapacity(membership.collection.text);
                                 std.debug.assert(!res.found_existing);
-                                res.key_ptr.* = membership.collection.text;
                                 res.value_ptr.* = membership;
                             },
                         }
@@ -287,7 +284,6 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
                                     // delete the last item
                                     existing_members.items.len -= 1;
                                 } else {
-                                    res.key_ptr.* = privileges.resource.text;
                                     res.value_ptr.* = privileges;
                                 }
                             },
@@ -303,7 +299,6 @@ pub fn mergeRoles(allocator: std.mem.Allocator, tree: *fauna.SchemaTree) !void {
                                     // delete the last item
                                     existing_members.items.len -= 1;
                                 } else {
-                                    res.key_ptr.* = membership.collection.text;
                                     res.value_ptr.* = membership;
                                 }
                             },

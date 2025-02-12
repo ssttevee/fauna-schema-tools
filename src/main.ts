@@ -180,9 +180,15 @@ async function pushAndReport(
 }
 
 async function writeAndPush(
-  [schema, names]: ReturnType<typeof mergeSchemas>,
+  [schema, names, missing]: ReturnType<typeof mergeSchemas>,
   output?: OutputOptions,
 ) {
+  if (missing.length) {
+    console.warn(
+      `WARNING: unknown functions ignored in linking phase - ${missing.join(", ")}`,
+    );
+  }
+
   try {
     await Promise.all([
       output?.dtspath &&

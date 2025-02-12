@@ -444,16 +444,45 @@ export async function writeIfChanged(
   return true;
 }
 
+/**
+ * Names of built-in global functions.
+ *
+ * @see https://docs.fauna.com/fauna/current/reference/fql-api/globals/
+ */
+export const builtinGlobalFunctionNames = new Set([
+  "abort",
+  "dbg",
+  "ID",
+  "log",
+  "newId",
+]);
+
 export function mergeSchemas(
   schemas: Iterable<Schema>,
-): [mergedSchema: Schema, mangledNames: Record<string, string>] {
+): [
+  mergedSchema: Schema,
+  mangledNames: Record<string, string>,
+  missingNames: string[],
+] {
   const merged = Schema.merge(Array.from(schemas, (schema) => schema.clone()));
 
-  const mangledNames = merged.linkFunctions();
+  const { names, missing } = merged.linkFunctions();
   merged.mergeRoles();
   merged.sort();
 
-  return [merged, mangledNames];
+  const collections = new Set(
+    merged.declarations.flatMap((d) =>
+      d.type === DeclarationType.COLLECTION ? [d.name, d.alias] : [],
+    ),
+  );
+
+  return [
+    merged,
+    names,
+    Array.from(new Set(missing)).filter(
+      (name) => !builtinGlobalFunctionNames.has(name) && !collections.has(name),
+    ),
+  ];
 }
 
 export async function loadSchemas(

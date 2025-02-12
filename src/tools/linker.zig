@@ -39,6 +39,27 @@ const FunctionInfo = struct {
     }
 };
 
+pub const LinkFunctionsResult = struct {
+    allocator: std.mem.Allocator,
+    names: std.StringHashMapUnmanaged([]const u8),
+    missing: [][]const u8,
+
+    pub fn deinit(self: LinkFunctionsResult) void {
+        var original_name_iterator = self.names.keyIterator();
+        while (original_name_iterator.next()) |original_name| {
+            self.allocator.free(original_name.*);
+        }
+
+        @constCast(&self.names).deinit(self.allocator);
+
+        for (self.missing) |name| {
+            self.allocator.free(name);
+        }
+
+        self.allocator.free(self.missing);
+    }
+};
+
 /// This function "mangles" the names of all functions using the hash of the
 /// canonical representation while maintaining reference integrity.
 ///
@@ -46,14 +67,22 @@ const FunctionInfo = struct {
 ///
 /// The returned hashmap owns the pointers to the keys, but not the values,
 /// which are owned by the AST.
-pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !std.StringHashMap([]const u8) {
-    var funcs = try findFunctionDependencies(allocator, tree);
+pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !LinkFunctionsResult {
+    var funcs, const missing = try findFunctionDependencies(allocator, tree);
     defer {
         for (funcs.values()) |*info| {
             info.deinit(allocator);
         }
 
         funcs.deinit();
+    }
+
+    errdefer {
+        for (missing) |name| {
+            allocator.free(name);
+        }
+
+        allocator.free(missing);
     }
 
     // NOTE: Mangled names must be allocated with the tree's allocator in case a
@@ -160,7 +189,11 @@ pub fn linkFunctions(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !std.
         }
     }
 
-    return mangled_func_names;
+    return .{
+        .allocator = allocator,
+        .names = mangled_func_names.unmanaged,
+        .missing = missing,
+    };
 }
 
 const CycleVisitor = struct {
@@ -331,11 +364,11 @@ fn generateFunctionsHash(func_names: []const []const u8, funcs: std.StringArrayH
     return std.fmt.bytesToHex(hasher.finalResult(), .lower);
 }
 
-/// Returns a map of function names to maps of references.
+/// Returns a map of function names to maps of references and a list of missing function names.
 ///
 /// All returned pointers, not including the hashmap and reference slice, are
 /// owned by the tree.
-fn findFunctionDependencies(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !std.StringArrayHashMap(FunctionInfo) {
+fn findFunctionDependencies(allocator: std.mem.Allocator, tree: fauna.SchemaTree) !std.meta.Tuple(&.{ std.StringArrayHashMap(FunctionInfo), [][]const u8 }) {
     var funcs = std.StringHashMap(*fauna.SchemaDefinition.Function).init(allocator);
     // both keys and values are borrowed references
     defer funcs.deinit();
@@ -362,6 +395,14 @@ fn findFunctionDependencies(allocator: std.mem.Allocator, tree: fauna.SchemaTree
 
     try all_funcs_deps.ensureTotalCapacity(funcs.count());
 
+    var missing_func_names = std.StringArrayHashMap(void).init(allocator);
+    defer missing_func_names.deinit();
+    errdefer {
+        for (missing_func_names.keys()) |name| {
+            allocator.free(name);
+        }
+    }
+
     var func_it = funcs.valueIterator();
     while (func_it.next()) |func| {
         var func_deps = std.StringHashMap(std.ArrayListUnmanaged(*fauna.TextNode)).init(allocator);
@@ -378,19 +419,22 @@ fn findFunctionDependencies(allocator: std.mem.Allocator, tree: fauna.SchemaTree
         defer walker.deinit();
 
         while (try walker.next()) |expr| {
-            if (expr.* != .identifier) {
+            if (expr.* != .invocation or expr.invocation.function.* != .identifier) {
                 continue;
             }
 
-            if (funcs.get(expr.identifier.text)) |func_info| {
-                const result = try func_deps.getOrPut(func_info.name.text);
-                if (!result.found_existing) {
-                    // dep keys are expected to be ptrs to the function name
-                    result.key_ptr.* = func_info.name.text;
-                    result.value_ptr.* = .{};
-                }
+            const ident = &expr.invocation.function.identifier;
+            const func_name = ident.text;
 
-                try result.value_ptr.append(allocator, @constCast(&expr.identifier));
+            if (funcs.get(func_name)) |func_info| {
+                const result = try func_deps.getOrPutValue(func_info.name.text, .{});
+                try result.value_ptr.append(allocator, @constCast(ident));
+            } else {
+                const gop = try missing_func_names.getOrPut(func_name);
+                if (!gop.found_existing) {
+                    errdefer _ = missing_func_names.pop();
+                    gop.key_ptr.* = try allocator.dupe(u8, func_name);
+                }
             }
         }
 
@@ -418,11 +462,24 @@ fn findFunctionDependencies(allocator: std.mem.Allocator, tree: fauna.SchemaTree
         });
     }
 
-    return all_funcs_deps;
+    return .{
+        all_funcs_deps,
+        try allocator.dupe([]const u8, missing_func_names.keys()),
+    };
 }
 
+/// Returns a list of missing function names
+///
 /// Expects a map of original func names to mangled func names. That is the same as the return value of `linkFunctions`.
-pub fn updatePredicateFunctionReferences(allocator: std.mem.Allocator, tree: fauna.SchemaTree, mangled_func_names: std.StringHashMap([]const u8)) !void {
+pub fn updatePredicateFunctionReferences(allocator: std.mem.Allocator, tree: fauna.SchemaTree, mangled_func_names: std.StringHashMapUnmanaged([]const u8)) ![][]const u8 {
+    var missing_func_names = std.StringArrayHashMap(void).init(allocator);
+    defer missing_func_names.deinit();
+    errdefer {
+        for (missing_func_names.keys()) |name| {
+            allocator.free(name);
+        }
+    }
+
     var maybe_it = tree.walkPredicates();
     if (maybe_it) |*pred_it| {
         while (pred_it.next()) |pred| {
@@ -430,13 +487,22 @@ pub fn updatePredicateFunctionReferences(allocator: std.mem.Allocator, tree: fau
             defer it.deinit();
 
             while (try it.next()) |expr| {
-                if (expr.* != .identifier) {
+                if (expr.* != .invocation or expr.invocation.function.* != .identifier) {
                     continue;
                 }
 
-                if (mangled_func_names.get(expr.identifier.text)) |mangled_name| {
-                    tree.allocator.free(expr.identifier.text);
-                    @constCast(expr).identifier.text = try tree.allocator.dupe(u8, mangled_name);
+                const ident = &expr.invocation.function.identifier;
+                const func_name = ident.text;
+
+                if (mangled_func_names.get(func_name)) |mangled_name| {
+                    tree.allocator.free(func_name);
+                    @constCast(ident).text = try tree.allocator.dupe(u8, mangled_name);
+                } else {
+                    const gop = try missing_func_names.getOrPut(func_name);
+                    if (!gop.found_existing) {
+                        errdefer _ = missing_func_names.pop();
+                        gop.key_ptr.* = try allocator.dupe(u8, func_name);
+                    }
                 }
             }
         }
@@ -462,4 +528,6 @@ pub fn updatePredicateFunctionReferences(allocator: std.mem.Allocator, tree: fau
             }
         }
     }
+
+    return try allocator.dupe([]const u8, missing_func_names.keys());
 }

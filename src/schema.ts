@@ -68,7 +68,7 @@ export class Schema {
     zig.sortSchemaTree(this.#data);
   }
 
-  public linkFunctions(): Record<string, string> {
+  public linkFunctions(): { names: Record<string, string>; missing: string[] } {
     const json = zig.linkFunctions(this.#data);
     if (!json) {
       throw new Error("Failed to link functions");
@@ -164,8 +164,13 @@ export class Schema {
 
   public get declarations(): Array<
     | {
-        type: Exclude<DeclarationType, DeclarationType.ROLE>;
+        type: DeclarationType.ACCESS_PROVIDER | DeclarationType.FUNCTION;
         name: string;
+      }
+    | {
+        type: DeclarationType.COLLECTION;
+        name: string;
+        alias?: string;
       }
     | {
         type: DeclarationType.ROLE;

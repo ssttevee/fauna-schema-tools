@@ -56,14 +56,19 @@ fn printCanonicalTreeInternal(allocator: std.mem.Allocator, tree: fauna.SchemaTr
                         continue;
                     }
 
-                    const result = try smw.name_map.getOrPut(allocator, value.string);
-                    if (result.found_existing) {
+                    const gop = try smw.name_map.getOrPut(allocator, value.string);
+                    if (gop.found_existing) {
                         std.log.warn("ignoring duplicate name: {d}", .{value.string});
                         continue;
                     }
 
-                    result.key_ptr.* = try allocator.dupe(u8, value.string);
-                    result.value_ptr.* = try allocator.dupe(u8, key);
+                    errdefer _ = smw.name_map.pop();
+
+                    gop.key_ptr.* = try allocator.dupe(u8, value.string);
+
+                    errdefer allocator.free(gop.key_ptr.*);
+
+                    gop.value_ptr.* = try allocator.dupe(u8, key);
                 }
             } else {
                 std.log.warn("ignoring non-object mangled name map", .{});
@@ -110,17 +115,10 @@ pub fn printCanonicalTree(tree: fauna.SchemaTree, source_map_file: ?[]const u8, 
 }
 
 fn linkFunctionsInternal(tree: fauna.SchemaTree) ![]const u8 {
-    var mangled_func_names = try linker.linkFunctions(std.heap.wasm_allocator, tree);
-    defer {
-        var original_name_iterator = mangled_func_names.keyIterator();
-        while (original_name_iterator.next()) |original_name| {
-            tree.allocator.free(original_name.*);
-        }
+    var result = try linker.linkFunctions(std.heap.wasm_allocator, tree);
+    defer result.deinit();
 
-        mangled_func_names.deinit();
-    }
-
-    try linker.updatePredicateFunctionReferences(std.heap.wasm_allocator, tree, mangled_func_names);
+    const missing = try linker.updatePredicateFunctionReferences(std.heap.wasm_allocator, tree, result.names);
 
     var out = std.ArrayList(u8).init(std.heap.wasm_allocator);
     defer out.deinit();
@@ -129,12 +127,29 @@ fn linkFunctionsInternal(tree: fauna.SchemaTree) ![]const u8 {
         var s = std.json.writeStream(out.writer(), .{});
         s.deinit();
 
-        var it = mangled_func_names.iterator();
         try s.beginObject();
-        while (it.next()) |entry| {
-            try s.objectField(entry.key_ptr.*);
-            try s.write(entry.value_ptr.*);
+
+        try s.objectField("names");
+        try s.beginObject();
+        {
+            var it = result.names.iterator();
+            while (it.next()) |entry| {
+                try s.objectField(entry.key_ptr.*);
+                try s.write(entry.value_ptr.*);
+            }
         }
+        try s.endObject();
+
+        try s.objectField("missing");
+        try s.beginArray();
+        for (result.missing) |name| {
+            try s.write(name);
+        }
+        for (missing) |name| {
+            try s.write(name);
+        }
+        try s.endArray();
+
         try s.endObject();
     }
 
@@ -296,24 +311,42 @@ fn listSchemaTreeDeclarationsInternal(allocator: std.mem.Allocator, tree: fauna.
             try stream.objectField("name");
             try stream.write(decl.name());
 
-            if (decl == .role) {
-                try stream.objectField("resources");
-                try stream.beginArray();
-                if (decl.role.members) |members| {
-                    for (members) |member| {
-                        try stream.beginObject();
-                        try stream.objectField("type");
-                        try stream.write(@tagName(member));
-                        try stream.objectField("name");
-                        try stream.write(switch (member) {
-                            .privileges => |p| p.resource.text,
-                            .membership => |p| p.collection.text,
-                        });
-                        try stream.endObject();
+            switch (decl) {
+                .role => |role| {
+                    try stream.objectField("resources");
+                    try stream.beginArray();
+                    if (role.members) |members| {
+                        for (members) |member| {
+                            try stream.beginObject();
+                            try stream.objectField("type");
+                            try stream.write(@tagName(member));
+                            try stream.objectField("name");
+                            try stream.write(switch (member) {
+                                .privileges => |p| p.resource.text,
+                                .membership => |p| p.collection.text,
+                            });
+                            try stream.endObject();
+                        }
                     }
-                }
 
-                try stream.endArray();
+                    try stream.endArray();
+                },
+                .collection => |collection| {
+                    if (collection.alias) |alias| {
+                        switch (alias.value) {
+                            .identifier => |ident| {
+                                try stream.objectField("alias");
+                                try stream.write(ident.text);
+                            },
+                            .string_literal => |str| {
+                                try stream.objectField("alias");
+                                try stream.write(str.text[1 .. str.text.len - 1]);
+                            },
+                            else => {},
+                        }
+                    }
+                },
+                else => {},
             }
 
             try stream.endObject();
