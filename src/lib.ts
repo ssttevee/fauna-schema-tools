@@ -146,7 +146,7 @@ async function pullSchemaFile(
   }
 
   const diskpath = path.join(destdir, filename);
-  writeIfChanged(diskpath, json.content);
+  await writeIfChanged(diskpath, json.content);
   return Schema.parse(json.content, diskpath);
 }
 
