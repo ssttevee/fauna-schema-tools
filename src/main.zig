@@ -33,15 +33,8 @@ pub fn main() !void {
     var tree = try merger.mergeSchemas(allocator, &ftrees);
     defer tree.deinit();
 
-    var mangled_func_names = try linker.linkFunctions(allocator, tree);
-    defer {
-        var original_name_iterator = mangled_func_names.keyIterator();
-        while (original_name_iterator.next()) |original_name| {
-            tree.allocator.free(original_name.*);
-        }
-
-        mangled_func_names.deinit();
-    }
+    var result = try linker.linkFunctions(allocator, tree);
+    defer result.deinit();
 
     try merger.mergeRoles(allocator, &tree);
 
