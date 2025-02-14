@@ -260,7 +260,7 @@ async function initWasm() {
 
 const link = command({
   name: "link",
-  description: "Link functions in a schema",
+  description: "Merge schema files and link functions",
   args: {
     schemapath: positional({
       displayName: "schema path",
@@ -299,7 +299,7 @@ const link = command({
     push: flag({
       long: "push",
       short: "p",
-      description: "Push schema to db",
+      description: "Push merged schema to db",
       type: boolean,
     }),
     pushkey: option({
@@ -362,7 +362,7 @@ const link = command({
 
 const format = command({
   name: "format",
-  description: "Format a schema file",
+  description: "Format schema files",
   args: {
     schemapaths: restPositionals({
       displayName: "schema paths",
