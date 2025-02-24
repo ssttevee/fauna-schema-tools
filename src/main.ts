@@ -118,18 +118,98 @@ function startWatcher(
   return w;
 }
 
+// function f(n: string): ReturnType<typeof fql> & { (...args: QueryArgument[]): ReturnType<typeof fql>; name: string } {
+//   return new Proxy(fql([n]), {
+//     apply: (target, _, args) => fql(["", `(`, ...(args.length ? new Array(args.length - 1).fill(",") : []), ")"], target, ...args),
+//     get: (target, prop) => prop === "name" ? n : (target as any)[prop],
+//   }) as any;
+// }
+const fnsHead = jen.statements(
+  jen.import.obj(jen.id("fql"), jen.type.id("QueryArgument")).from.lit("fauna"),
+  jen.type
+    .id("FunctionHelper")
+    .types(
+      jen
+        .id("Args")
+        .extends.id("QueryArgument")
+        .arr()
+        .op("=")
+        .id("QueryArgument")
+        .arr(),
+    )
+    .op("=")
+    .id("ReturnType")
+    .types(jen.typeof(jen.id("fql")))
+    .op("&")
+    .obj(
+      jen
+        .params(jen.op("...").id("args").op(":").id("Args"))
+        .op(":")
+        .id("ReturnType")
+        .types(jen.typeof(jen.id("fql"))),
+      jen.prop("name", jen.id("string")),
+    ),
+  jen
+    .function(jen.id("f"), jen.id("name").op(":").id("string"))
+    .op(":")
+    .id("FunctionHelper")
+    .block(
+      jen.return(
+        jen.new.id("Proxy").call(
+          jen.id("fql").call(jen.arr(jen.id("name"))),
+          jen.obj(
+            jen.prop(
+              "apply",
+              jen
+                .arrow(jen.id("target"), jen.id("_"), jen.id("args"))
+                .id("fql")
+                .call(
+                  jen.arr(
+                    jen.lit(""),
+                    jen.lit("("),
+                    jen
+                      .op("...")
+                      .parens(
+                        jen.ternary(
+                          jen.id("args").dot("length"),
+                          jen.new
+                            .id("Array")
+                            .call(jen.id("args").dot("length").op("-").lit(1))
+                            .dot("fill")
+                            .call(jen.lit(",")),
+                          jen.arr(),
+                        ),
+                      ),
+                    jen.lit(")"),
+                  ),
+                  jen.id("target"),
+                  jen.op("...").id("args"),
+                ),
+            ),
+            jen.prop(
+              "get",
+              jen
+                .arrow(jen.id("target"), jen.id("prop"))
+                .ternary(
+                  jen.id("prop").op("===").lit("name"),
+                  jen.id("name"),
+                  jen.parens(jen.id("target").as.any).index(jen.id("prop")),
+                ),
+            ),
+          ),
+        ),
+      ).as.any,
+    ),
+);
+
 function generateFnsMapFile(name: Record<string, string>): string {
   return jen
     .statements(
-      jen.import.obj(jen.id("fql")).from.lit("fauna"),
+      fnsHead,
       ...Object.entries(name)
         .toSorted(([a], [b]) => a.localeCompare(b))
         .map(([name, mangled]) =>
-          jen.export.const
-            .id(name)
-            .op("=")
-            .id("fql")
-            .call(jen.arr(jen.lit(mangled))),
+          jen.export.const.id(name).op("=").id("f").call(jen.lit(mangled)),
         ),
     )
     .toString();
