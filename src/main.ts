@@ -118,12 +118,6 @@ function startWatcher(
   return w;
 }
 
-// function f(n: string): ReturnType<typeof fql> & { (...args: QueryArgument[]): ReturnType<typeof fql>; name: string } {
-//   return new Proxy(fql([n]), {
-//     apply: (target, _, args) => fql(["", `(`, ...(args.length ? new Array(args.length - 1).fill(",") : []), ")"], target, ...args),
-//     get: (target, prop) => prop === "name" ? n : (target as any)[prop],
-//   }) as any;
-// }
 const fnsHead = jen.statements(
   jen.import.obj(jen.id("fql"), jen.type.id("QueryArgument")).from.lit("fauna"),
   jen.type
@@ -154,50 +148,53 @@ const fnsHead = jen.statements(
     .op(":")
     .id("FunctionHelper")
     .block(
+      jen.const
+        .id("q")
+        .op("=")
+        .id("fql")
+        .call(jen.arr(jen.id("name"))),
       jen.return(
-        jen.new.id("Proxy").call(
-          jen.id("fql").call(jen.arr(jen.id("name"))),
-          jen.obj(
-            jen.prop(
-              "apply",
-              jen
-                .arrow(jen.id("target"), jen.id("_"), jen.id("args"))
-                .id("fql")
-                .call(
-                  jen.arr(
-                    jen.lit(""),
-                    jen.lit("("),
-                    jen
-                      .op("...")
-                      .parens(
-                        jen.ternary(
-                          jen.id("args").dot("length"),
-                          jen.new
-                            .id("Array")
-                            .call(jen.id("args").dot("length").op("-").lit(1))
-                            .dot("fill")
-                            .call(jen.lit(",")),
-                          jen.arr(),
-                        ),
+        jen
+          .id("Object")
+          .dot("setPrototypeOf")
+          .call(
+            jen
+              .arrow(jen.op("...").id("args").op(":").any.index())
+              .id("fql")
+              .call(
+                jen.arr(
+                  jen.lit(""),
+                  jen.lit("("),
+                  jen
+                    .op("...")
+                    .parens(
+                      jen.ternary(
+                        jen.id("args").dot("length"),
+                        jen.new
+                          .id("Array")
+                          .call(jen.id("args").dot("length").op("-").lit(1))
+                          .dot("fill")
+                          .call(jen.lit(",")),
+                        jen.arr(),
                       ),
-                    jen.lit(")"),
-                  ),
-                  jen.id("target"),
-                  jen.op("...").id("args"),
+                    ),
+                  jen.lit(")"),
                 ),
-            ),
-            jen.prop(
-              "get",
-              jen
-                .arrow(jen.id("target"), jen.id("prop"))
-                .ternary(
-                  jen.id("prop").op("===").lit("name"),
-                  jen.id("name"),
-                  jen.parens(jen.id("target").as.any).index(jen.id("prop")),
-                ),
+                jen.id("q"),
+                jen.op("...").id("args"),
+              ),
+            jen.obj(
+              jen.prop(
+                "__proto__",
+                jen.id("q").dot("constructor").dot("prototype"),
+              ),
+              jen.id("name"),
+              jen.prop(
+                "encode",
+                jen.id("q").dot("encode").dot("bind").call(jen.id("q")),
+              ),
             ),
           ),
-        ),
       ).as.any,
     ),
 );
