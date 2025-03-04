@@ -382,7 +382,7 @@ const link = command({
     pushkey: option({
       long: "key",
       short: "k",
-      description: "Fauna key",
+      description: "Fauna key (defaults to FAUNA_PUSH_KEY env var)",
       type: optional(string),
     }),
     endpoint: option({
@@ -418,6 +418,8 @@ const link = command({
     }
 
     if (args.push) {
+      args.pushkey ??= process.env.FAUNA_PUSH_KEY;
+
       const push: PushSchemaOptions = args.pushkey
         ? { key: args.pushkey, endpoint: args.endpoint }
         : { endpoint: args.endpoint || "http://localhost:8443", key: "secret" };
