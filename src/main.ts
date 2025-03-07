@@ -420,7 +420,10 @@ const link = command({
     }
 
     if (args.push) {
-      args.pushkey ??= process.env.FAUNA_PUSH_KEY;
+      if (!args.pushkey && process.env.FAUNA_PUSH_KEY) {
+        console.log("using FAUNA_PUSH_KEY value from env");
+        args.pushkey = process.env.FAUNA_PUSH_KEY;
+      }
 
       const push: PushSchemaOptions = args.pushkey
         ? { key: args.pushkey, endpoint: args.endpoint }
