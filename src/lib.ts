@@ -4,6 +4,7 @@ import { SourceMapConsumer } from "source-map";
 import * as path from "node:path";
 import globParent from "glob-parent";
 import anymatch from "anymatch";
+import { fixErrorReferences } from "./sourcemap";
 
 export { init, Schema } from "./schema";
 
@@ -41,85 +42,6 @@ async function loadSourceMapFromComment(
       ),
     ),
   ];
-}
-
-const errorLocationPattern = /at (\w+\.fsl):(\d+):(\d+)/;
-
-function fixErrorReferences(
-  sourcemaps: Map<string, SourceMapConsumer>,
-  message: string,
-): string {
-  let out = "";
-  let pos = 0;
-  while (true) {
-    const match = errorLocationPattern.exec(message.slice(pos));
-    if (!match) {
-      break;
-    }
-
-    const smc = sourcemaps.get(match[1]);
-    if (!smc) {
-      out += message.slice(pos, pos + match.index + match[0].length);
-      pos += match.index + match[0].length;
-      continue;
-    }
-
-    const line = Number.parseInt(match[2]);
-    const original = smc.originalPositionFor({
-      line,
-      column: Number.parseInt(match[3]) - 1,
-    });
-
-    if (
-      original.source === null ||
-      original.line === null ||
-      original.column === null
-    ) {
-      out += message.slice(pos, pos + match.index + match[0].length);
-      pos += match.index + match[0].length;
-      continue;
-    }
-
-    out += message.slice(pos, pos + match.index);
-    out += `at ${original.source}:${original.line}:${original.column + 1}`;
-    pos += match.index + match[0].length;
-
-    const nextMatch = errorLocationPattern.exec(message.slice(pos));
-    const snippet = message.slice(
-      pos,
-      nextMatch ? pos + nextMatch.index : undefined,
-    );
-
-    let i = 0;
-    let snippetpos = 0;
-    let snippetresult = "";
-    while (true) {
-      const l = line + i;
-      const match = snippet.slice(snippetpos).match(new RegExp(`${l} \\|`));
-      if (!match) {
-        break;
-      }
-
-      snippetresult += snippet.slice(snippetpos, match.index);
-      snippetresult += `${(original.line + i).toString().padEnd(l.toString().length)} |`;
-      snippetpos += match.index + match[0].length;
-
-      i += 1;
-    }
-
-    if (snippetpos < snippet.length) {
-      snippetresult += snippet.slice(snippetpos);
-    }
-
-    out += snippet;
-    if (nextMatch) {
-      pos += nextMatch.index;
-    } else {
-      pos = message.length;
-    }
-  }
-
-  return out + message.slice(pos);
 }
 
 async function pullSchemaFile(

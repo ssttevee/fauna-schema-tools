@@ -249,7 +249,9 @@ async function pushAndReport(
     }
   } catch (err) {
     if (err instanceof PushSchemaError) {
+      // it's not really useful to bubble this error all the way up to the terminal
       console.log(err.details);
+      return;
     }
 
     throw err;
