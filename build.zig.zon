@@ -24,8 +24,8 @@
     // internet connectivity.
     .dependencies = .{
         .fauna10 = .{
-            .url = "https://github.com/ssttevee/fauna-schema-language-parser/archive/f03c1962b0c938933d34306dc5e9914575af3ab0.tar.gz",
-            .hash = "1220246f40567c66d0f9779d33dd903cd72b2195d5af36372d6c57a21490858432d8",
+            .url = "https://github.com/ssttevee/fauna-schema-language-parser/archive/5523aef908347de72ae57c25480d3e3d054d55c4.tar.gz",
+            .hash = "122010431d9019bbad7cb5ef6b4bd1de55533b311766796970b61d1281967980242a",
         },
     },
     .paths = .{
