@@ -370,6 +370,7 @@ export async function writeIfChanged(
  * Names of built-in global functions.
  *
  * @see https://docs.fauna.com/fauna/current/reference/fql-api/globals/
+ * @see https://docs.fauna.com/fauna/current/learn/data-model/collections/#system-coll
  */
 export const builtinGlobalFunctionNames = new Set([
   "abort",
@@ -377,6 +378,11 @@ export const builtinGlobalFunctionNames = new Set([
   "ID",
   "log",
   "newId",
+  "Function",
+  "Collection",
+  "Credential",
+  "Key",
+  "Token",
 ]);
 
 export function mergeSchemas(
