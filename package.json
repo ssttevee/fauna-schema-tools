@@ -1,6 +1,6 @@
 {
   "name": "fauna-schema-tools",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "license": "MIT",
   "type": "module",
   "main": "dist/lib.cjs",
