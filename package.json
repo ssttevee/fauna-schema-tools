@@ -54,11 +54,13 @@
     },
     "./wasm-embedded": {
       "import": "./dist/root.wasm.mjs",
-      "require": "./dist/root.wasm.cjs"
+      "require": "./dist/root.wasm.cjs",
+      "types": "./wasm-embedded.d.ts"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "wasm-embedded.d.ts"
   ],
   "peerDependencies": {
     "fauna": "*"
