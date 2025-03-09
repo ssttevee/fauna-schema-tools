@@ -45,6 +45,32 @@ FLAGS:
   --help, -h  - show help
 ```
 
+## Library
+
+When importing the library, the wasm module must be initialized. Depending on your environment, you may need to use different methods to load the wasm file:
+
+```ts
+import { init } from "fauna-schema-tools";
+import wasm from "fauna-schema-tools/wasm-embedded";
+
+init(wasm);
+
+// or use a dynamic import
+init((await import("fauna-schema-tools/wasm-embedded")).default);
+
+// or even read the wasm file directly!
+init(
+  await fs.readFile(
+    typeof require !== "undefined"
+      ? require.resolve("fauna-schema-tools/wasm")
+      : import.meta.resolve("fauna-schema-tools/wasm"),
+  ),
+);
+
+// or somehow preload the module
+declare const module: WebAssembly.Module;
+init(module);
+```
 
 ## Function Linking
 
@@ -57,8 +83,8 @@ When combined with the `--retain` option, you can safely push schema changes to 
 When calling a function from a query in your application, use the `--names-out` option to generate a module that exports the names of the functions. Then it can be used like this:
 
 ```ts
-import { fql } from 'fauna'
-import { myFunction } from './functions_gen'
+import { fql } from "fauna";
+import { myFunction } from "./functions_gen";
 
-fql`${myFunction}()`
+fql`${myFunction}()`;
 ```
