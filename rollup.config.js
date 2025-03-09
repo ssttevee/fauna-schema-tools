@@ -44,7 +44,6 @@ export default [
       "node:url",
       "chokidar",
       "source-map",
-      "jennifer-js",
       "cmd-ts",
       "readdirp",
       "glob-parent",

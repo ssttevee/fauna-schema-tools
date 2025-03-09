@@ -10,7 +10,6 @@ import {
 } from "./lib";
 import * as fs from "node:fs/promises";
 import * as chokidar from "chokidar";
-import jen from "jennifer-js";
 import {
   command,
   run,
@@ -118,98 +117,48 @@ function startWatcher(
   return w;
 }
 
-const fnsHead = jen.statements(
-  jen.import.obj(jen.id("fql"), jen.type.id("QueryArgument")).from.lit("fauna"),
-  jen.type
-    .id("FunctionHelper")
-    .types(
-      jen
-        .id("Args")
-        .extends.id("QueryArgument")
-        .arr()
-        .op("=")
-        .id("QueryArgument")
-        .arr(),
-    )
-    .op("=")
-    .id("ReturnType")
-    .types(jen.typeof(jen.id("fql")))
-    .op("&")
-    .obj(
-      jen
-        .params(jen.op("...").id("args").op(":").id("Args"))
-        .op(":")
-        .id("ReturnType")
-        .types(jen.typeof(jen.id("fql"))),
-      jen.prop("name", jen.id("string")),
+const fnsHead = `import { fql, type QueryArgument } from "fauna";
+type FunctionHelper<Args extends QueryArgument[]> =
+  ReturnType<typeof fql> & {
+    (...args: Args): ReturnType<typeof fql>;
+    name: string;
+  };
+function f<Args extends QueryArgument[] = QueryArgument[]>(name: string): FunctionHelper<Args> {
+  const q = fql([name]);
+  return Object.setPrototypeOf(
+    Object.defineProperty(
+      (...args: any[]) =>
+        fql(
+          [
+            "",
+            "(",
+            ...(args.length ? new Array(args.length - 1).fill(",") : []),
+            ")",
+          ],
+          q,
+          ...args,
+        ),
+      "name",
+      {
+        value: name,
+      },
     ),
-  jen
-    .function(jen.id("f"), jen.id("name").op(":").id("string"))
-    .op(":")
-    .id("FunctionHelper")
-    .block(
-      jen.const
-        .id("q")
-        .op("=")
-        .id("fql")
-        .call(jen.arr(jen.id("name"))),
-      jen.return(
-        jen
-          .id("Object")
-          .dot("setPrototypeOf")
-          .call(
-            jen
-              .arrow(jen.op("...").id("args").op(":").any.index())
-              .id("fql")
-              .call(
-                jen.arr(
-                  jen.lit(""),
-                  jen.lit("("),
-                  jen
-                    .op("...")
-                    .parens(
-                      jen.ternary(
-                        jen.id("args").dot("length"),
-                        jen.new
-                          .id("Array")
-                          .call(jen.id("args").dot("length").op("-").lit(1))
-                          .dot("fill")
-                          .call(jen.lit(",")),
-                        jen.arr(),
-                      ),
-                    ),
-                  jen.lit(")"),
-                ),
-                jen.id("q"),
-                jen.op("...").id("args"),
-              ),
-            jen.obj(
-              jen.prop(
-                "__proto__",
-                jen.id("q").dot("constructor").dot("prototype"),
-              ),
-              jen.id("name"),
-              jen.prop(
-                "encode",
-                jen.id("q").dot("encode").dot("bind").call(jen.id("q")),
-              ),
-            ),
-          ),
-      ).as.any,
-    ),
-);
+    { __proto__: q.constructor.prototype, name, encode: q.encode.bind(q) },
+  ) as any;
+}
+`;
 
 function generateFnsMapFile(name: Record<string, string>): string {
-  return jen
-    .statements(
-      fnsHead,
-      ...Object.entries(name)
-        .toSorted(([a], [b]) => a.localeCompare(b))
-        .map(([name, mangled]) =>
-          jen.export.const.id(name).op("=").id("f").call(jen.lit(mangled)),
-        ),
-    )
-    .toString();
+  return (
+    fnsHead +
+    Object.entries(name)
+      .toSorted(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([name, mangled]) =>
+          `export const ${name} = f(${JSON.stringify(mangled)});\n`,
+      )
+      .join("")
+  );
 }
 
 interface OutputOptions {

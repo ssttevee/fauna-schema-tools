@@ -19,7 +19,6 @@
     "chokidar": "^3.6.0",
     "cmd-ts": "^0.13.0",
     "glob-parent": "^5.1.2",
-    "jennifer-js": "^1.0.3",
     "readdirp": "^3.6.0",
     "source-map": "^0.7.4",
     "zbind": "^0.0.11"
