@@ -117,36 +117,7 @@ function startWatcher(
   return w;
 }
 
-const fnsHead = `import { fql, type QueryArgument } from "fauna";
-type FunctionHelper<Args extends QueryArgument[]> =
-  ReturnType<typeof fql> & {
-    (...args: Args): ReturnType<typeof fql>;
-    name: string;
-  };
-function f<Args extends QueryArgument[] = QueryArgument[]>(name: string): FunctionHelper<Args> {
-  const q = fql([name]);
-  return Object.setPrototypeOf(
-    Object.defineProperty(
-      (...args: any[]) =>
-        fql(
-          [
-            "",
-            "(",
-            ...(args.length ? new Array(args.length - 1).fill(",") : []),
-            ")",
-          ],
-          q,
-          ...args,
-        ),
-      "name",
-      {
-        value: name,
-      },
-    ),
-    { __proto__: q.constructor.prototype, name, encode: q.encode.bind(q) },
-  ) as any;
-}
-`;
+const fnsHead = `import { createFunctionHelper as f } from "fauna-schema-tools/helpers";\n`;
 
 function generateFnsMapFile(name: Record<string, string>): string {
   return (

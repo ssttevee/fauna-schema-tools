@@ -23,7 +23,7 @@ export default [
     plugins: [rollupPluginFileUint8Array({ include: ["dist/root.wasm"] })],
   },
   {
-    input: ["src/lib.ts", "src/main.ts"],
+    input: ["src/lib.ts", "src/main.ts", "src/helpers.ts"],
     output: [
       {
         dir: "dist",
@@ -48,6 +48,7 @@ export default [
       "readdirp",
       "glob-parent",
       "anymatch",
+      "fauna",
     ],
     plugins: [
       typescript(),
@@ -68,6 +69,14 @@ export default [
     input: "src/lib.ts",
     output: {
       file: "dist/lib.d.ts",
+      format: "esm",
+    },
+    plugins: [dts()],
+  },
+  {
+    input: "src/helpers.ts",
+    output: {
+      file: "dist/helpers.d.ts",
       format: "esm",
     },
     plugins: [dts()],

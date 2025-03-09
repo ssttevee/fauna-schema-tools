@@ -30,6 +30,7 @@
     "@rollup/plugin-typescript": "^12.1.2",
     "@types/glob-parent": "^5.1.3",
     "@types/node": "^20.14.11",
+    "fauna": "^2.5.0",
     "patch-package": "^8.0.0",
     "rollup": "*",
     "rollup-plugin-dts": "^6.1.1",
@@ -41,6 +42,11 @@
       "import": "./dist/lib.mjs",
       "require": "./dist/lib.cjs",
       "types": "./dist/lib.d.ts"
+    },
+    "./helpers": {
+      "import": "./dist/helpers.mjs",
+      "require": "./dist/helpers.cjs",
+      "types": "./dist/helpers.d.ts"
     },
     "./wasm": {
       "import": "./dist/root.wasm",
@@ -55,6 +61,11 @@
     "dist"
   ],
   "peerDependencies": {
-    "rollup": "^4.20.0"
+    "fauna": "*"
+  },
+  "peerDependenciesMeta": {
+    "fauna": {
+      "optional": true
+    }
   }
 }
