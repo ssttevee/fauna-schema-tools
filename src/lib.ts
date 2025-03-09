@@ -413,6 +413,21 @@ export function mergeSchemas(
   ];
 }
 
+export async function loadMergedSchemas(
+  schemapaths: string | string[],
+): Promise<ReturnType<typeof mergeSchemas> | undefined> {
+  const schemas = Object.values(await loadSchemas(schemapaths));
+  try {
+    if (schemas.length) {
+      return mergeSchemas(schemas);
+    }
+  } finally {
+    for (const schema of schemas) {
+      schema.free();
+    }
+  }
+}
+
 export async function loadSchemas(
   schemapaths: string | string[],
 ): Promise<Record<string, Schema>> {
@@ -444,24 +459,19 @@ export async function loadSchemas(
 export async function pushMergedSchemas(
   schemapaths: string | string[],
   options: PushSchemaOptions,
-): Promise<number> {
-  const schemas = Object.values(await loadSchemas(schemapaths));
-  if (schemas.length === 0) {
-    return 0;
-  }
-
-  try {
-    const [mergedSchema] = mergeSchemas(schemas);
+): Promise<
+  | (PushSchemaResult & { names: Record<string, string>; missing: string[] })
+  | undefined
+> {
+  const result = await loadMergedSchemas(schemapaths);
+  if (result) {
     try {
-      await pushSchema(mergedSchema, options);
+      return Object.assign(await pushSchema(result[0], options), {
+        names: result[1],
+        missing: result[2],
+      });
     } finally {
-      mergedSchema.free();
-    }
-  } finally {
-    for (const schema of schemas) {
-      schema.free();
+      result[0].free();
     }
   }
-
-  return schemas.length;
 }
