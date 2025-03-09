@@ -5,6 +5,7 @@ import * as path from "node:path";
 import globParent from "glob-parent";
 import anymatch from "anymatch";
 import { fixErrorReferences } from "./sourcemap";
+import { createFunctionHelper, type FunctionHelper } from "./helpers";
 
 export { init, Schema } from "./schema";
 
@@ -474,4 +475,20 @@ export async function pushMergedSchemas(
       result[0].free();
     }
   }
+}
+
+/**
+ * Creates an object of helper functions using the mangled names from `mergeSchema`.
+ *
+ * This effectively emulates the module helpers generated when using the `--names` flag with the cli.
+ */
+export function createHelpersFromNames(
+  names: Record<string, string>,
+): Record<string, FunctionHelper> {
+  return Object.fromEntries(
+    Object.entries(names).map(([name, mangled]) => [
+      name,
+      createFunctionHelper(mangled),
+    ]),
+  );
 }
