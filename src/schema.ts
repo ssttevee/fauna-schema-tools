@@ -3,7 +3,7 @@ import * as zig from "./zig";
 
 let initialized = false;
 
-export function init(source?: BufferSource | string) {
+export function init(source?: WebAssembly.Module | BufferSource) {
   zig.$init(source);
   initialized = true;
 }

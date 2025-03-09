@@ -1,0 +1,37 @@
+diff --git a/node_modules/zbind/dist/index.d.ts b/node_modules/zbind/dist/index.d.ts
+index 760bb36..2bb12e0 100644
+--- a/node_modules/zbind/dist/index.d.ts
++++ b/node_modules/zbind/dist/index.d.ts
+@@ -34,5 +34,5 @@ interface Reflection {
+     stackBase: number;
+     wrappers: CallableFunction[];
+ }
+-export declare function $bind(source: BufferSource | string, callback?: () => void): Reflection;
++export declare function $bind(source: WebAssembly.Module | BufferSource | string, callback?: () => void): Reflection;
+ export {};
+diff --git a/node_modules/zbind/dist/index.js b/node_modules/zbind/dist/index.js
+index f5d56a6..db64fda 100644
+--- a/node_modules/zbind/dist/index.js
++++ b/node_modules/zbind/dist/index.js
+@@ -99,7 +99,7 @@ function bindWasm(source, callback) {
+         return mem;
+     }
+     var wasi = (0, makeWasi_1.makeWasi)(memory);
+-    var module = new WebAssembly.Module(source);
++    var module = source instanceof WebAssembly.Module ? source : new WebAssembly.Module(source);
+     var imports = {
+         env: { _callback: callback }
+     };
+diff --git a/node_modules/zbind/src/prologue.ts b/node_modules/zbind/src/prologue.ts
+index 0e10dcd..d94c3cc 100644
+--- a/node_modules/zbind/src/prologue.ts
++++ b/node_modules/zbind/src/prologue.ts
+@@ -27,7 +27,7 @@ export function $create() {
+ 		$slots[$mem.F64[$top]]();
+ 	}
+ 
+-	function $init(source: BufferSource | string = $defaultPath()) {
++	function $init(source: WebAssembly.Module | BufferSource | string = $defaultPath()) {
+ 		const deps = $bind(source, $callback);
+ 		$getMemory = deps.getMemory;
+ 		$wrappers = deps.wrappers;
